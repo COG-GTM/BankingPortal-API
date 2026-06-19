@@ -12,6 +12,9 @@ spring.jpa.hibernate.ddl-auto=update
 spring.main.allow-circular-references=true
 server.error.include-message=always
 
+# Virtual Threads (Java 21)
+spring.threads.virtual.enabled=true
+
 # JWT
 jwt.secret=your-secret-key
 # Token expiration time in milliseconds (e.g., 24 hours)

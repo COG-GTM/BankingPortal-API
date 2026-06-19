@@ -11,8 +11,10 @@ import com.webapp.bankingportal.exception.InvalidTokenException;
 import com.webapp.bankingportal.repository.TokenRepository;
 import com.webapp.bankingportal.util.ApiMessages;
 
+import javax.crypto.SecretKey;
+
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 
 import lombok.val;
 
@@ -100,8 +102,8 @@ public class TokenServiceTests extends BaseTest {
 
     @Test
     public void test_get_username_from_token_with_unsigned_token() {
-        val token = Jwts.builder().setSubject(getRandomAccountNumber())
-                .setIssuedAt(new Date()).compact();
+        val token = Jwts.builder().subject(getRandomAccountNumber())
+                .issuedAt(new Date()).compact();
 
         Assertions.assertThrows(InvalidTokenException.class,
                 () -> tokenService.getUsernameFromToken(token),
@@ -119,9 +121,11 @@ public class TokenServiceTests extends BaseTest {
 
     @Test
     public void test_get_username_from_token_with_invalid_signature() {
-        val token = Jwts.builder().setSubject(getRandomAccountNumber())
-                .setIssuedAt(new Date())
-                .signWith(SignatureAlgorithm.HS256, "invalid")
+        SecretKey invalidKey = Keys.hmacShaKeyFor(
+                "invalidkeyinvalidkeyinvalidkey12".getBytes());
+        val token = Jwts.builder().subject(getRandomAccountNumber())
+                .issuedAt(new Date())
+                .signWith(invalidKey, Jwts.SIG.HS256)
                 .compact();
 
         Assertions.assertThrows(InvalidTokenException.class,

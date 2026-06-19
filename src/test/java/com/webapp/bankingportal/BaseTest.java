@@ -242,8 +242,8 @@ public abstract class BaseTest {
             if (bodyPart.isMimeType("text/html")) {
                 result.append(bodyPart.getContent());
                 break;
-            } else if (bodyPart.getContent() instanceof MimeMultipart) {
-                result.append(getTextFromMimeMultipart((MimeMultipart) bodyPart.getContent()));
+            } else if (bodyPart.getContent() instanceof MimeMultipart nestedMultipart) {
+                result.append(getTextFromMimeMultipart(nestedMultipart));
                 if (result.length() > 0) {
                     break;
                 }

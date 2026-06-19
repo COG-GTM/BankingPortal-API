@@ -2,14 +2,15 @@ package com.webapp.bankingportal.service;
 
 import static org.springframework.security.core.userdetails.User.withUsername;
 
-import java.nio.charset.StandardCharsets;
-import java.security.Key;
 import java.util.Date;
 import java.util.function.Function;
+
+import javax.crypto.SecretKey;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SecurityException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -59,15 +60,17 @@ public class TokenServiceImpl implements TokenService {
         log.info("Generating token for user: " + userDetails.getUsername());
         return doGenerateToken(userDetails, expiry);
     }
-    private Key key() {
+
+    private SecretKey key() {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
+
     private String doGenerateToken(UserDetails userDetails, Date expiry) {
-        return Jwts.builder().setSubject(userDetails.getUsername())
-                .setIssuedAt(new Date())
-                .setExpiration(expiry)
-                .signWith(key(), SignatureAlgorithm.HS512).compact();
+        return Jwts.builder().subject(userDetails.getUsername())
+                .issuedAt(new Date())
+                .expiration(expiry)
+                .signWith(key(), Jwts.SIG.HS512).compact();
     }
 
     @Override
@@ -91,24 +94,17 @@ public class TokenServiceImpl implements TokenService {
         val claims = getAllClaimsFromToken(token);
         return claimsResolver.apply(claims);
     }
-    private JwtParser parser() {
-        return Jwts.parserBuilder()
-                .setSigningKey(key())
-                .build();
-    }
+
     private Claims getAllClaimsFromToken(String token) throws InvalidTokenException {
         try {
-           // return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
-            return Jwts.parserBuilder()
-                    .setSigningKey(key())
+            return Jwts.parser()
+                    .verifyWith(key())
                     .build()
-                    .parseClaimsJws(token)
-                    .getBody();
-          //  return parser().parseClaimsJws(token).getBody();
-        } catch (ExpiredJwtException e) {
-            // Delete expired token
-            invalidateToken(token);
+                    .parseSignedClaims(token)
+                    .getPayload();
 
+        } catch (ExpiredJwtException e) {
+            invalidateToken(token);
             throw new InvalidTokenException(ApiMessages.TOKEN_EXPIRED_ERROR.getMessage());
 
         } catch (UnsupportedJwtException e) {
@@ -117,7 +113,7 @@ public class TokenServiceImpl implements TokenService {
         } catch (MalformedJwtException e) {
             throw new InvalidTokenException(ApiMessages.TOKEN_MALFORMED_ERROR.getMessage());
 
-        } catch (SignatureException e) {
+        } catch (SecurityException e) {
             throw new InvalidTokenException(ApiMessages.TOKEN_SIGNATURE_INVALID_ERROR.getMessage());
 
         } catch (IllegalArgumentException e) {
