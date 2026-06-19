@@ -9,8 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotEmpty;
 
 import lombok.AllArgsConstructor;
@@ -19,31 +18,31 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
+@Table(name = "app_user")
 @Data
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotEmpty
+    @NotEmpty(message = "Name cannot be empty")
     private String name;
 
-    @NotEmpty
+    @NotEmpty(message = "Password cannot be empty")
     private String password;
 
-    @Email
-   @NotEmpty
+    @NotEmpty(message = "Email cannot be empty")
     @Column(unique = true)
     private String email;
 
-    @NotEmpty
+    @NotEmpty(message = "Country code cannot be empty")
     private String countryCode;
 
-    @NotEmpty
+    @NotEmpty(message = "Phone number cannot be empty")
     @Column(unique = true)
     private String phoneNumber;
 
-    @NotEmpty
+    @NotEmpty(message = "Address cannot be empty")
     private String address;
 
     // Establishing a one-to-one relationship with the account

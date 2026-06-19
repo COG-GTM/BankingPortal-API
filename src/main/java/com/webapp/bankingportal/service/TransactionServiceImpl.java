@@ -1,7 +1,6 @@
 package com.webapp.bankingportal.service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import com.webapp.bankingportal.repository.AccountRepository;
 import org.springframework.stereotype.Service;
@@ -27,12 +26,10 @@ public class TransactionServiceImpl implements TransactionService {
         val transactions = transactionRepository
                 .findBySourceAccount_AccountNumberOrTargetAccount_AccountNumber(accountNumber, accountNumber);
 
-        val transactionDTOs = transactions.parallelStream()
+        return transactions.parallelStream()
                 .map(transactionMapper::toDto)
                 .sorted((t1, t2) -> t2.getTransactionDate().compareTo(t1.getTransactionDate()))
-                .collect(Collectors.toList());
-
-        return transactionDTOs;
+                .toList();
     }
     public void sendBankStatementByEmail(String accountNumber) {
         if (accountNumber == null || accountNumber.trim().isEmpty()) {
