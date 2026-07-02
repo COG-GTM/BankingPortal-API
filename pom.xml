@@ -102,11 +102,6 @@
             <version>0.12.6</version>
         </dependency>
         <dependency>
-            <groupId>javax.xml.bind</groupId>
-            <artifactId>jaxb-api</artifactId>
-            <version>2.1</version>
-        </dependency>
-        <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.0.2</version>
@@ -183,15 +178,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.15.0</version> <!-- Use the latest version available -->
+                <version>3.26.0</version>
                 <configuration>
+                    <targetJdk>21</targetJdk>
                     <rulesets>
-                        <ruleset>/rulesets/java/braces.xml</ruleset>
-                        <ruleset>/rulesets/java/naming.xml</ruleset>
-                        <ruleset>/usr/pmd/rulesets/strings.xml</ruleset>
-                        <ruleset>http://localhost/design.xml</ruleset>
+                        <ruleset>${project.basedir}/pmd-ruleset.xml</ruleset>
                     </rulesets>
-
                 </configuration>
 
                 <executions>
