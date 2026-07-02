@@ -29,6 +29,15 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 
 ## Technologies Used
 
+- **Java 21** (Temurin/OpenJDK 21)
+- **Spring Boot 3.3.1** — Web, Security, Data JPA, Validation, Mail, Cache, Data Redis, Actuator
+- **MySQL 8** (via `mysql-connector-j`) for persistence
+- **Redis 7** for caching and idempotency support
+- **JWT** authentication using **jjwt 0.12.x**
+- **MapStruct** and **Lombok** for DTO mapping and boilerplate reduction
+- **springdoc-openapi** for API documentation
+- **Maven** (with the included Maven Wrapper `./mvnw`) for builds
+
 ![image](https://github.com/abhi9720/BankingPortal-API/assets/68281476/31896d20-16d9-4fe1-a534-0490841de4b9)
 ![image](https://github.com/abhi9720/BankingPortal-API/assets/68281476/c09bc4ac-c0ca-4f7c-9c6e-8eb9818eb35b)
 ![image](https://github.com/abhi9720/BankingPortal-API/assets/68281476/78c75fff-e8a8-49c6-9897-34b08b2c9308)
@@ -45,12 +54,42 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 - Email trigger on account login
 - Send Bank Statement on Email
 
+## Prerequisites
+
+- **JDK 21** (the project targets Java 21)
+- **Maven** — the repository ships with the Maven Wrapper (`./mvnw`), so a local Maven install is optional
+- **MySQL 8** running and reachable (default database `bankingapp`)
+- **Redis 7** running and reachable (used for caching and idempotency)
+
+A `docker/docker-compose.yml` file is provided to start MySQL and Redis locally:
+
+```sh
+docker compose -f docker/docker-compose.yml up -d
+```
+
 ## Installation and Setup
 
 1. Clone the repository: `git clone https://github.com/yourusername/banking-portal-api.git`
-2. Navigate to the project folder: `cd banking-portal-api`
-3. Configure MySQL: Set up a MySQL database, create a copy of `application.properties.sample`, rename it `application.properties`, and update the properties as needed.
-4. Build and run the project: `mvn spring-boot:run`
+2. Navigate to the project folder: `cd BankingPortal-API`
+3. Start MySQL and Redis (see [Prerequisites](#prerequisites)), for example with `docker compose -f docker/docker-compose.yml up -d`.
+4. Configure the app: copy `src/main/resources/application.properties.sample` to `src/main/resources/application.properties` and update the datasource, JWT, mail, and Redis properties as needed.
+5. Build and run the project with the Maven Wrapper:
+
+   ```sh
+   ./mvnw spring-boot:run
+   ```
+
+   On Windows use `mvnw.cmd spring-boot:run`.
+
+### Running with Docker
+
+Build the application JAR and package it into a container image (the `Dockerfile` uses an Eclipse Temurin 21 base image):
+
+```sh
+./mvnw clean package
+docker build -t bankingportal-api .
+docker run -p 8080:8080 bankingportal-api
+```
 
 ## Screenshots
 

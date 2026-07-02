@@ -266,4 +266,18 @@ public abstract class BaseTest {
         throw new RuntimeException("OTP not found in email");
     }
 
+    protected static String getOtpFromEmails(MimeMessage[] messages)
+            throws IOException, MessagingException {
+
+        for (val message : messages) {
+            val content = getTextFromMimeMultipart((MimeMultipart) message.getContent());
+            val matcher = Pattern.compile("<h2.*?>(\\d+)</h2>").matcher(content);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        }
+
+        throw new RuntimeException("OTP not found in email");
+    }
+
 }

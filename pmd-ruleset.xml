@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="BankingPortal PMD Rules"
+    xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        Focused PMD ruleset for the BankingPortal API. Uses modern PMD category
+        rulesets and targets high-signal correctness issues so the build fails on
+        genuine defects rather than pre-existing stylistic preferences.
+    </description>
+
+    <!-- High-signal error-prone checks -->
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock" />
+    <rule ref="category/java/errorprone.xml/BrokenNullCheck" />
+    <rule ref="category/java/errorprone.xml/CheckSkipResult" />
+    <rule ref="category/java/errorprone.xml/JumbledIncrementer" />
+    <rule ref="category/java/errorprone.xml/MisplacedNullCheck" />
+    <rule ref="category/java/errorprone.xml/UnconditionalIfStatement" />
+
+    <!-- Best-practice checks -->
+    <rule ref="category/java/bestpractices.xml/UnusedLocalVariable" />
+    <rule ref="category/java/bestpractices.xml/CheckResultSet" />
+
+    <!-- Code-style checks -->
+    <rule ref="category/java/codestyle.xml/EmptyControlStatement" />
+
+</ruleset>
