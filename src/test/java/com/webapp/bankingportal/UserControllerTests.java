@@ -277,7 +277,7 @@ public class UserControllerTests extends BaseTest {
     @Test
     public void test_register_user_with_short_password() throws Exception {
         val user = createUser();
-        user.setPassword(faker.internet().password(1, MIN_PASSWORD_LENGTH - 1, true, true));
+        user.setPassword(faker.internet().password(MIN_PASSWORD_LENGTH - 1, MIN_PASSWORD_LENGTH - 1, true, true));
 
         mockMvc.perform(MockMvcRequestBuilders
                 .post("/api/users/register")
