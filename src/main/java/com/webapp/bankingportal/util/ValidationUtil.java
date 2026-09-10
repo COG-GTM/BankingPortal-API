@@ -8,6 +8,7 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 
+import com.webapp.bankingportal.dto.UpdateUserRequest;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.UserInvalidException;
 import com.webapp.bankingportal.repository.UserRepository;
@@ -117,52 +118,76 @@ public class ValidationUtil {
         }
     }
 
+    public static void validateUserDetailsNotEmpty(UpdateUserRequest request) {
+        if (request == null) {
+            throw new UserInvalidException(ApiMessages.USER_DETAILS_EMPTY_ERROR.getMessage());
+        }
+
+        validateUserDetailsNotEmpty(request.name(), request.address(), request.email(),
+                request.countryCode(), request.phoneNumber(), request.password());
+    }
+
     public static void validateUserDetailsNotEmpty(User user) {
         if (user == null) {
             throw new UserInvalidException(ApiMessages.USER_DETAILS_EMPTY_ERROR.getMessage());
         }
 
-        if (user.getName() == null || user.getName().isEmpty()) {
+        validateUserDetailsNotEmpty(user.getName(), user.getAddress(), user.getEmail(),
+                user.getCountryCode(), user.getPhoneNumber(), user.getPassword());
+    }
+
+    private static void validateUserDetailsNotEmpty(String name, String address, String email,
+            String countryCode, String phoneNumber, String password) {
+
+        if (name == null || name.isEmpty()) {
             throw new UserInvalidException(ApiMessages.USER_NAME_EMPTY_ERROR.getMessage());
         }
 
-        if (user.getAddress() == null || user.getAddress().isEmpty()) {
+        if (address == null || address.isEmpty()) {
             throw new UserInvalidException(ApiMessages.USER_ADDRESS_EMPTY_ERROR.getMessage());
         }
 
-        if (user.getEmail() == null || user.getEmail().isEmpty()) {
+        if (email == null || email.isEmpty()) {
             throw new UserInvalidException(ApiMessages.USER_EMAIL_EMPTY_ERROR.getMessage());
         }
 
-        if (user.getCountryCode() == null || user.getCountryCode().isEmpty()) {
+        if (countryCode == null || countryCode.isEmpty()) {
             throw new UserInvalidException(ApiMessages.USER_COUNTRY_CODE_EMPTY_ERROR.getMessage());
         }
 
-        if (user.getPhoneNumber() == null || user.getPhoneNumber().isEmpty()) {
+        if (phoneNumber == null || phoneNumber.isEmpty()) {
             throw new UserInvalidException(ApiMessages.USER_PHONE_NUMBER_EMPTY_ERROR.getMessage());
         }
 
-        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+        if (password == null || password.isEmpty()) {
             throw new UserInvalidException(ApiMessages.PASSWORD_EMPTY_ERROR.getMessage());
         }
     }
 
+    public static void validateUserDetails(UpdateUserRequest request) {
+        validateUserDetailsNotEmpty(request);
+        validateUserDetails(request.email(), request.countryCode(), request.phoneNumber(), request.password());
+    }
+
     public static void validateUserDetails(User user) {
         validateUserDetailsNotEmpty(user);
+        validateUserDetails(user.getEmail(), user.getCountryCode(), user.getPhoneNumber(), user.getPassword());
+    }
 
-        if (!isValidEmail(user.getEmail())) {
-            throw new UserInvalidException(String.format(ApiMessages.USER_EMAIL_ADDRESS_INVALID_ERROR.getMessage(), user.getEmail()));
+    private static void validateUserDetails(String email, String countryCode, String phoneNumber, String password) {
+        if (!isValidEmail(email)) {
+            throw new UserInvalidException(String.format(ApiMessages.USER_EMAIL_ADDRESS_INVALID_ERROR.getMessage(), email));
         }
 
-        if (!isValidCountryCode(user.getCountryCode())) {
-            throw new UserInvalidException(String.format(ApiMessages.USER_COUNTRY_CODE_INVALID_ERROR.getMessage(), user.getCountryCode()));
+        if (!isValidCountryCode(countryCode)) {
+            throw new UserInvalidException(String.format(ApiMessages.USER_COUNTRY_CODE_INVALID_ERROR.getMessage(), countryCode));
         }
 
-        if (!isValidPhoneNumber(user.getPhoneNumber(), user.getCountryCode())) {
-            throw new UserInvalidException(String.format(ApiMessages.USER_PHONE_NUMBER_INVALID_ERROR.getMessage(), user.getPhoneNumber(), user.getCountryCode()));
+        if (!isValidPhoneNumber(phoneNumber, countryCode)) {
+            throw new UserInvalidException(String.format(ApiMessages.USER_PHONE_NUMBER_INVALID_ERROR.getMessage(), phoneNumber, countryCode));
         }
 
-        validatePassword(user.getPassword());
+        validatePassword(password);
     }
 
     public void validateNewUser(User user) {

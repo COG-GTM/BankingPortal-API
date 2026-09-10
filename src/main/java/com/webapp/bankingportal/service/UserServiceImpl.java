@@ -15,6 +15,7 @@ import org.springframework.web.servlet.ModelAndView;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
+import com.webapp.bankingportal.dto.UpdateUserRequest;
 import com.webapp.bankingportal.dto.UserResponse;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
@@ -86,11 +87,11 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity<String> updateUser(User updatedUser) {
+    public ResponseEntity<String> updateUser(UpdateUserRequest updateRequest) {
         val accountNumber = LoggedinUser.getAccountNumber();
-        authenticateUser(accountNumber, updatedUser.getPassword());
+        authenticateUser(accountNumber, updateRequest.password());
         val existingUser = getUserByAccountNumber(accountNumber);
-        updateUserDetails(existingUser, updatedUser);
+        updateUserDetails(existingUser, updateRequest);
         val savedUser = saveUser(existingUser);
         return ResponseEntity.ok(JsonUtil.toJson(new UserResponse(savedUser)));
     }
@@ -210,10 +211,9 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private void updateUserDetails(User existingUser, User updatedUser) {
-        ValidationUtil.validateUserDetails(updatedUser);
-        updatedUser.setPassword(existingUser.getPassword());
-        userMapper.updateUser(updatedUser, existingUser);
+    private void updateUserDetails(User existingUser, UpdateUserRequest updateRequest) {
+        ValidationUtil.validateUserDetails(updateRequest);
+        userMapper.updateUser(updateRequest, existingUser);
     }
 
     private CompletableFuture<Boolean> sendLoginNotification(User user, String ip) {
