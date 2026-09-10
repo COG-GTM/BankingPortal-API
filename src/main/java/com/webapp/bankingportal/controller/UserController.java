@@ -15,6 +15,7 @@ import org.springframework.web.servlet.ModelAndView;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
+import com.webapp.bankingportal.dto.UpdateUserRequest;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
 import com.webapp.bankingportal.service.UserService;
@@ -64,8 +65,8 @@ public class UserController {
     }
 
     @PostMapping("/update")
-    public ResponseEntity<String> updateUser(@RequestBody User user) {
-        return userService.updateUser(user);
+    public ResponseEntity<String> updateUser(@RequestBody UpdateUserRequest updateRequest) {
+        return userService.updateUser(updateRequest);
     }
 
     @GetMapping("/logout")
