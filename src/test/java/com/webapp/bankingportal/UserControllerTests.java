@@ -1,5 +1,7 @@
 package com.webapp.bankingportal;
 
+import java.util.HashMap;
+
 import org.hamcrest.core.StringContains;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -721,6 +723,38 @@ public class UserControllerTests extends BaseTest {
                 .andExpect(MockMvcResultMatchers.status().isUnauthorized())
                 .andExpect(MockMvcResultMatchers.content()
                         .string("Bad credentials"));
+    }
+
+    @Test
+    public void test_update_user_cannot_overwrite_another_user_via_id() throws Exception {
+        val victim = createAndRegisterUser();
+        val victimEntity = userRepository.findByEmail(victim.getEmail()).get();
+
+        val attackerDetails = createAndLoginUser();
+        val attackerEntity = userRepository.findByEmail(attackerDetails.get("email")).get();
+
+        val updatePayload = new HashMap<String, Object>();
+        updatePayload.put("id", victimEntity.getId());
+        updatePayload.put("name", faker.name().fullName());
+        updatePayload.put("email", faker.internet().safeEmailAddress());
+        updatePayload.put("address", faker.address().fullAddress());
+        updatePayload.put("countryCode", attackerDetails.get("countryCode"));
+        updatePayload.put("phoneNumber", getRandomPhoneNumber(attackerDetails.get("countryCode")));
+        updatePayload.put("password", attackerDetails.get("password"));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + attackerDetails.get("token"))
+                .content(JsonUtil.toJson(updatePayload)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        val victimAfter = userRepository.findById(victimEntity.getId()).get();
+        Assertions.assertEquals(victim.getEmail(), victimAfter.getEmail());
+        Assertions.assertEquals(victim.getName(), victimAfter.getName());
+
+        val attackerAfter = userRepository.findById(attackerEntity.getId()).get();
+        Assertions.assertEquals(updatePayload.get("email"), attackerAfter.getEmail());
     }
 
     @Test
