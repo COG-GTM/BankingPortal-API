@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.webapp.bankingportal.exception.AccountDoesNotExistException;
@@ -85,6 +86,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(JsonProcessingException.class)
     public ResponseEntity<String> handleJsonProcessingException(JsonProcessingException ex) {
         return ResponseEntity.internalServerError().body(ex.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<String> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(String.format(
+                ApiMessages.TRANSACTION_SEARCH_INVALID_PARAMETER_ERROR.getMessage(), ex.getValue(), ex.getName()));
     }
 
     @ExceptionHandler(NotFoundException.class)

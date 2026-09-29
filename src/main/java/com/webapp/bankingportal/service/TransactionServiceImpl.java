@@ -4,11 +4,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.webapp.bankingportal.repository.AccountRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import com.webapp.bankingportal.dto.PagedResponse;
 import com.webapp.bankingportal.dto.TransactionDTO;
+import com.webapp.bankingportal.dto.TransactionSearchCriteria;
 import com.webapp.bankingportal.mapper.TransactionMapper;
 import com.webapp.bankingportal.repository.TransactionRepository;
+import com.webapp.bankingportal.repository.TransactionSpecifications;
+import com.webapp.bankingportal.util.ApiMessages;
 
 import lombok.RequiredArgsConstructor;
 import lombok.val;
@@ -16,6 +22,9 @@ import lombok.val;
 @Service
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
+
+    public static final int MAX_PAGE_SIZE = 100;
+    public static final List<String> SORTABLE_FIELDS = List.of("transactionDate", "amount");
 
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
@@ -57,6 +66,48 @@ public class TransactionServiceImpl implements TransactionService {
         }
         String email = account.getUser().getEmail();
         emailService.sendEmail(email, "Your Bank Statement", sb.toString());
+    }
+
+    @Override
+    public PagedResponse<TransactionDTO> searchTransactions(String accountNumber, TransactionSearchCriteria criteria,
+            int page, int size, String sortBy, String sortDirection) {
+        validateSearch(criteria, page, size, sortBy);
+
+        val direction = Sort.Direction.fromString(sortDirection);
+        val sort = Sort.by(direction, sortBy).and(Sort.by(direction, "id"));
+        val pageable = PageRequest.of(page, size, sort);
+
+        val result = transactionRepository
+                .findAll(TransactionSpecifications.forAccount(accountNumber, criteria), pageable)
+                .map(transactionMapper::toDto);
+
+        return PagedResponse.from(result);
+    }
+
+    private void validateSearch(TransactionSearchCriteria criteria, int page, int size, String sortBy) {
+        if (page < 0) {
+            throw new IllegalArgumentException(ApiMessages.TRANSACTION_SEARCH_PAGE_ERROR.getMessage());
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException(
+                    String.format(ApiMessages.TRANSACTION_SEARCH_SIZE_ERROR.getMessage(), MAX_PAGE_SIZE));
+        }
+        if (!SORTABLE_FIELDS.contains(sortBy)) {
+            throw new IllegalArgumentException(String.format(ApiMessages.TRANSACTION_SEARCH_SORT_ERROR.getMessage(),
+                    String.join(", ", SORTABLE_FIELDS)));
+        }
+        if (criteria.startDate() != null && criteria.endDate() != null
+                && criteria.startDate().isAfter(criteria.endDate())) {
+            throw new IllegalArgumentException(ApiMessages.TRANSACTION_SEARCH_DATE_RANGE_ERROR.getMessage());
+        }
+        if ((criteria.minAmount() != null && criteria.minAmount() < 0)
+                || (criteria.maxAmount() != null && criteria.maxAmount() < 0)) {
+            throw new IllegalArgumentException(ApiMessages.TRANSACTION_SEARCH_AMOUNT_NEGATIVE_ERROR.getMessage());
+        }
+        if (criteria.minAmount() != null && criteria.maxAmount() != null
+                && criteria.minAmount() > criteria.maxAmount()) {
+            throw new IllegalArgumentException(ApiMessages.TRANSACTION_SEARCH_AMOUNT_RANGE_ERROR.getMessage());
+        }
     }
 
 }

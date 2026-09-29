@@ -26,6 +26,23 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 - Cash Deposit and Withdrawal: Users can deposit and withdraw cash from their accounts.
 - Fund Transfer: Users can transfer funds to other accounts within the system.
 - Transaction History: Users can view their transaction history.
+- Transaction Search: Users can filter their transaction history by date range, type, and amount range with pagination and sorting.
+
+### Transaction Search
+
+`GET /api/account/transactions/search` (authenticated) returns a page of the logged-in account's transactions (as source or target).
+
+| Parameter | Description | Default |
+| --- | --- | --- |
+| `startDate`, `endDate` | Inclusive ISO dates (`yyyy-MM-dd`), server time zone | none |
+| `type` | One or more of `CASH_DEPOSIT`, `CASH_WITHDRAWAL`, `CASH_TRANSFER`, `CASH_CREDIT` (repeat the param or comma-separate) | all |
+| `minAmount`, `maxAmount` | Inclusive, non-negative | none |
+| `page`, `size` | Zero-based page index; size 1-100 | `0`, `20` |
+| `sortBy`, `sortDir` | `transactionDate` or `amount`; `asc` or `desc` | `transactionDate`, `desc` |
+
+Example: `/api/account/transactions/search?startDate=2024-01-01&endDate=2024-01-31&type=CASH_DEPOSIT&minAmount=100&page=0&size=10`
+
+Response: `{"content": [...], "page": 0, "size": 10, "totalElements": 42, "totalPages": 5, "first": true, "last": false}`. Invalid parameters return `400`.
 
 ## Technologies Used
 
