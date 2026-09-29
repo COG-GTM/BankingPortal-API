@@ -30,3 +30,17 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 # Geolocation API
 geo.api.url=https://api.findip.net/
 geo.api.key=your-api-key
+
+# Rate limiting for authentication endpoints (per client IP, per instance)
+rate-limit.enabled=true
+# Only enable behind a trusted reverse proxy
+rate-limit.trust-forwarded-headers=false
+# /api/users/login, /api/users/verify-otp
+rate-limit.login.max-requests=10
+rate-limit.login.window=1m
+# /api/users/generate-otp, /api/auth/password-reset/send-otp
+rate-limit.otp.max-requests=5
+rate-limit.otp.window=5m
+# /api/auth/password-reset/verify-otp, /api/auth/password-reset
+rate-limit.password-reset.max-requests=5
+rate-limit.password-reset.window=15m

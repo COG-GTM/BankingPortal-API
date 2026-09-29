@@ -41,6 +41,7 @@ public enum ApiMessages {
     PIN_INVALID_ERROR("Invalid PIN"),
     PIN_NOT_CREATED("PIN has not been created for this account"),
     PIN_UPDATE_SUCCESS("{\"hasPIN\": false, \"msg\": \"PIN updated successfully\"}"),
+    RATE_LIMIT_EXCEEDED("Too many requests. Please try again in %d seconds."),
     TOKEN_ALREADY_EXISTS_ERROR("Token already exists"),
     TOKEN_EMPTY_ERROR("Token is empty"),
     TOKEN_EXPIRED_ERROR("Token has expired"),

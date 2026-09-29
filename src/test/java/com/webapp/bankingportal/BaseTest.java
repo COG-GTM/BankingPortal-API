@@ -40,7 +40,7 @@ import jakarta.mail.internet.MimeMultipart;
 import lombok.val;
 
 @SpringBootTest
-@TestPropertySource(locations = "classpath:application-test.properties")
+@TestPropertySource(locations = "classpath:application-test.properties", properties = "rate-limit.enabled=false")
 @Transactional
 @AutoConfigureMockMvc
 public abstract class BaseTest {

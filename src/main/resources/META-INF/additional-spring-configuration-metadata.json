@@ -29,6 +29,54 @@
             "name": "geo.api.key",
             "type": "java.lang.String",
             "description": "Geolocation API key"
+        },
+        {
+            "name": "rate-limit.enabled",
+            "type": "java.lang.Boolean",
+            "description": "Enable rate limiting on authentication endpoints",
+            "defaultValue": true
+        },
+        {
+            "name": "rate-limit.trust-forwarded-headers",
+            "type": "java.lang.Boolean",
+            "description": "Use the first X-Forwarded-For address as the client key (only behind a trusted proxy)",
+            "defaultValue": false
+        },
+        {
+            "name": "rate-limit.login.max-requests",
+            "type": "java.lang.Integer",
+            "description": "Maximum login and OTP login requests per client within the window",
+            "defaultValue": 10
+        },
+        {
+            "name": "rate-limit.login.window",
+            "type": "java.time.Duration",
+            "description": "Window length for the login and OTP login rate limit",
+            "defaultValue": "1m"
+        },
+        {
+            "name": "rate-limit.otp.max-requests",
+            "type": "java.lang.Integer",
+            "description": "Maximum OTP generation requests per client within the window",
+            "defaultValue": 5
+        },
+        {
+            "name": "rate-limit.otp.window",
+            "type": "java.time.Duration",
+            "description": "Window length for the OTP generation rate limit",
+            "defaultValue": "5m"
+        },
+        {
+            "name": "rate-limit.password-reset.max-requests",
+            "type": "java.lang.Integer",
+            "description": "Maximum password reset verification and reset requests per client within the window",
+            "defaultValue": 5
+        },
+        {
+            "name": "rate-limit.password-reset.window",
+            "type": "java.time.Duration",
+            "description": "Window length for the password reset verification and reset rate limit",
+            "defaultValue": "15m"
         }
     ]
 }
