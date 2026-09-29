@@ -30,3 +30,12 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 # Geolocation API
 geo.api.url=https://api.findip.net/
 geo.api.key=your-api-key
+
+# Transfer fees (strategy: FLAT | PERCENTAGE | FREE_TIER)
+transfer.fee.strategy=FLAT
+transfer.fee.flat.amount=0.0
+transfer.fee.percentage.rate=1.0
+transfer.fee.percentage.min=0.0
+#transfer.fee.percentage.max=50.0
+transfer.fee.free-tier.free-transfers-per-month=5
+transfer.fee.free-tier.paid-strategy=FLAT

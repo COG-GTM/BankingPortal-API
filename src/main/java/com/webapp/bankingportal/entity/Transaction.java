@@ -20,6 +20,7 @@ public class Transaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private double amount;
+    private double fee;
 
     @Enumerated(EnumType.STRING)
     private TransactionType transactionType;

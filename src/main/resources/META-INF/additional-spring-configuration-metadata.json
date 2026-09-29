@@ -29,6 +29,47 @@
             "name": "geo.api.key",
             "type": "java.lang.String",
             "description": "Geolocation API key"
+        },
+        {
+            "name": "transfer.fee.strategy",
+            "type": "com.webapp.bankingportal.fee.TransferFeeProperties$StrategyType",
+            "description": "Transfer fee strategy: FLAT, PERCENTAGE or FREE_TIER",
+            "defaultValue": "FLAT"
+        },
+        {
+            "name": "transfer.fee.flat.amount",
+            "type": "java.lang.Double",
+            "description": "Fixed fee charged per transfer (FLAT strategy)",
+            "defaultValue": 0.0
+        },
+        {
+            "name": "transfer.fee.percentage.rate",
+            "type": "java.lang.Double",
+            "description": "Fee as a percentage of the transfer amount, e.g. 1.5 for 1.5% (PERCENTAGE strategy)",
+            "defaultValue": 0.0
+        },
+        {
+            "name": "transfer.fee.percentage.min",
+            "type": "java.lang.Double",
+            "description": "Minimum fee for the PERCENTAGE strategy",
+            "defaultValue": 0.0
+        },
+        {
+            "name": "transfer.fee.percentage.max",
+            "type": "java.lang.Double",
+            "description": "Maximum fee for the PERCENTAGE strategy; unset means no cap"
+        },
+        {
+            "name": "transfer.fee.free-tier.free-transfers-per-month",
+            "type": "java.lang.Integer",
+            "description": "Number of fee-free transfers per account per calendar month (FREE_TIER strategy)",
+            "defaultValue": 5
+        },
+        {
+            "name": "transfer.fee.free-tier.paid-strategy",
+            "type": "com.webapp.bankingportal.fee.TransferFeeProperties$StrategyType",
+            "description": "Strategy (FLAT or PERCENTAGE) applied once the free tier is exhausted",
+            "defaultValue": "FLAT"
         }
     ]
 }

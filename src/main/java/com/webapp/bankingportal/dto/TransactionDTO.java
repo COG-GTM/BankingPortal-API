@@ -17,6 +17,7 @@ public class TransactionDTO {
 
     private Long id;
     private double amount;
+    private double fee;
     private TransactionType transactionType;
     private Date transactionDate;
     private String sourceAccountNumber;
@@ -25,6 +26,7 @@ public class TransactionDTO {
     public TransactionDTO(Transaction transaction) {
         this.id = transaction.getId();
         this.amount = transaction.getAmount();
+        this.fee = transaction.getFee();
         this.transactionType = transaction.getTransactionType();
         this.transactionDate = transaction.getTransactionDate();
         this.sourceAccountNumber = transaction.getSourceAccount().getAccountNumber();

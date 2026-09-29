@@ -17,6 +17,7 @@ import com.webapp.bankingportal.exception.InvalidAmountException;
 import com.webapp.bankingportal.exception.InvalidPinException;
 import com.webapp.bankingportal.exception.NotFoundException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
+import com.webapp.bankingportal.fee.TransferFeeStrategy;
 import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.repository.TransactionRepository;
 import com.webapp.bankingportal.util.ApiMessages;
@@ -36,6 +37,7 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+    private final TransferFeeStrategy transferFeeStrategy;
 
     @Override
     public Account createAccount(User user) {
@@ -217,11 +219,12 @@ public class AccountServiceImpl implements AccountService {
 
         val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
         val sourceBalance = sourceAccount.getBalance();
-        if (sourceBalance < amount) {
+        val fee = transferFeeStrategy.calculateFee(sourceAccountNumber, amount);
+        if (sourceBalance < amount + fee) {
             throw new InsufficientBalanceException(ApiMessages.BALANCE_INSUFFICIENT_ERROR.getMessage());
         }
 
-        val newSourceBalance = sourceBalance - amount;
+        val newSourceBalance = sourceBalance - amount - fee;
         sourceAccount.setBalance(newSourceBalance);
         accountRepository.save(sourceAccount);
 
@@ -232,6 +235,7 @@ public class AccountServiceImpl implements AccountService {
 
         val transaction = new Transaction();
         transaction.setAmount(amount);
+        transaction.setFee(fee);
         transaction.setTransactionType(TransactionType.CASH_TRANSFER);
         transaction.setTransactionDate(new Date());
         transaction.setSourceAccount(sourceAccount);
