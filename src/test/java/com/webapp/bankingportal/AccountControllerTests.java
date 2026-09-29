@@ -328,8 +328,8 @@ public class AccountControllerTests extends BaseTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(amountRequest)))
                 .andExpect(MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
     }
 
     @Test
@@ -344,8 +344,8 @@ public class AccountControllerTests extends BaseTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(amountRequest)))
                 .andExpect(MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.AMOUNT_EXCEED_100_000_ERROR.getMessage()));
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.AMOUNT_EXCEED_100_000_ERROR.getMessage()));
     }
 
     @Test
@@ -359,9 +359,9 @@ public class AccountControllerTests extends BaseTest {
                 .header("Authorization", "Bearer " + userDetails.get("token"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(amountRequest)))
-                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.PIN_EMPTY_ERROR.getMessage()));
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.PIN_EMPTY_ERROR.getMessage()));
     }
 
     @Test
@@ -420,8 +420,8 @@ public class AccountControllerTests extends BaseTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(amountRequest)))
                 .andExpect(MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
     }
 
     @Test
@@ -436,8 +436,8 @@ public class AccountControllerTests extends BaseTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(amountRequest)))
                 .andExpect(MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
     }
 
     @Test
@@ -468,9 +468,9 @@ public class AccountControllerTests extends BaseTest {
                 .header("Authorization", "Bearer " + userDetails.get("token"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(amountRequest)))
-                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.PIN_EMPTY_ERROR.getMessage()));
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.PIN_EMPTY_ERROR.getMessage()));
     }
 
     @Test
@@ -588,8 +588,8 @@ public class AccountControllerTests extends BaseTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(fundTransferRequest)))
                 .andExpect(MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
     }
 
     @Test
@@ -606,8 +606,8 @@ public class AccountControllerTests extends BaseTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(fundTransferRequest)))
                 .andExpect(MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage()));
     }
 
     @Test
@@ -623,9 +623,9 @@ public class AccountControllerTests extends BaseTest {
                 .header("Authorization", "Bearer " + userDetails.get("token"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(fundTransferRequest)))
-                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.PIN_EMPTY_ERROR.getMessage()));
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.PIN_EMPTY_ERROR.getMessage()));
     }
 
     @Test
@@ -641,9 +641,9 @@ public class AccountControllerTests extends BaseTest {
                 .header("Authorization", "Bearer " + userDetails.get("token"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(fundTransferRequest)))
-                .andExpect(MockMvcResultMatchers.status().isNotFound())
-                .andExpect(MockMvcResultMatchers.content()
-                        .string(ApiMessages.ACCOUNT_NOT_FOUND.getMessage()));
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.errors[0].message")
+                        .value(ApiMessages.TARGET_ACCOUNT_EMPTY_ERROR.getMessage()));
     }
 
     @Test

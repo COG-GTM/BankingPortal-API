@@ -1,14 +1,22 @@
 package com.webapp.bankingportal.controller;
 
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.context.request.WebRequest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.webapp.bankingportal.dto.ValidationErrorResponse;
+import com.webapp.bankingportal.dto.ValidationErrorResponse.FieldValidationError;
 import com.webapp.bankingportal.exception.AccountDoesNotExistException;
 import com.webapp.bankingportal.exception.FundTransferException;
 import com.webapp.bankingportal.exception.GeolocationException;
@@ -26,8 +34,43 @@ import org.springframework.data.redis.RedisConnectionFailureException;
 import java.util.Map;
 import com.webapp.bankingportal.util.ApiMessages;
 
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.val;
+
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ValidationErrorResponse> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
+        val fieldErrors = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> new FieldValidationError(error.getField(), error.getDefaultMessage()))
+                .sorted(Comparator.comparing(FieldValidationError::field)
+                        .thenComparing(FieldValidationError::message))
+                .toList();
+
+        return buildValidationErrorResponse(ApiMessages.VALIDATION_FAILED.getMessage(), request, fieldErrors);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ValidationErrorResponse> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return buildValidationErrorResponse(ApiMessages.REQUEST_BODY_INVALID_ERROR.getMessage(), request, List.of());
+    }
+
+    private static ResponseEntity<ValidationErrorResponse> buildValidationErrorResponse(
+            String message, HttpServletRequest request, List<FieldValidationError> errors) {
+        val status = HttpStatus.BAD_REQUEST;
+        val body = new ValidationErrorResponse(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                request.getRequestURI(),
+                errors);
+
+        return ResponseEntity.status(status).body(body);
+    }
 
     @ExceptionHandler(AccountDoesNotExistException.class)
     public ResponseEntity<String> handleAccountDoesNotExistException(
