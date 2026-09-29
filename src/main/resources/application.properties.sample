@@ -30,3 +30,10 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 # Geolocation API
 geo.api.url=https://api.findip.net/
 geo.api.key=your-api-key
+
+# Transfer velocity checks (suspicious transfers are flagged for review, not blocked)
+velocity.enabled=true
+velocity.per-transaction-amount-threshold=50000
+velocity.daily-amount-threshold=200000
+velocity.daily-count-threshold=5
+velocity.zone-id=UTC

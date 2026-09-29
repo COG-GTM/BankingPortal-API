@@ -29,6 +29,36 @@
             "name": "geo.api.key",
             "type": "java.lang.String",
             "description": "Geolocation API key"
+        },
+        {
+            "name": "velocity.enabled",
+            "type": "java.lang.Boolean",
+            "description": "Enable velocity checks that flag suspicious fund transfers for review",
+            "defaultValue": true
+        },
+        {
+            "name": "velocity.per-transaction-amount-threshold",
+            "type": "java.lang.Double",
+            "description": "A single transfer strictly above this amount is flagged for review",
+            "defaultValue": 50000
+        },
+        {
+            "name": "velocity.daily-amount-threshold",
+            "type": "java.lang.Double",
+            "description": "Flag when the day's transfer total (including the current transfer) is strictly above this amount",
+            "defaultValue": 200000
+        },
+        {
+            "name": "velocity.daily-count-threshold",
+            "type": "java.lang.Integer",
+            "description": "Flag when the day's transfer count (including the current transfer) is strictly above this number",
+            "defaultValue": 5
+        },
+        {
+            "name": "velocity.zone-id",
+            "type": "java.lang.String",
+            "description": "Time zone used for calendar-day boundaries in the daily velocity checks",
+            "defaultValue": "UTC"
         }
     ]
 }

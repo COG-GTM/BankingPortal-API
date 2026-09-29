@@ -36,6 +36,8 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+    @Autowired
+    private final TransactionVelocityService transactionVelocityService;
 
     @Override
     public Account createAccount(User user) {
@@ -221,6 +223,8 @@ public class AccountServiceImpl implements AccountService {
             throw new InsufficientBalanceException(ApiMessages.BALANCE_INSUFFICIENT_ERROR.getMessage());
         }
 
+        val velocityViolations = transactionVelocityService.evaluateTransfer(sourceAccountNumber, amount);
+
         val newSourceBalance = sourceBalance - amount;
         sourceAccount.setBalance(newSourceBalance);
         accountRepository.save(sourceAccount);
@@ -236,7 +240,9 @@ public class AccountServiceImpl implements AccountService {
         transaction.setTransactionDate(new Date());
         transaction.setSourceAccount(sourceAccount);
         transaction.setTargetAccount(targetAccount);
-        transactionRepository.save(transaction);
+        val savedTransaction = transactionRepository.save(transaction);
+
+        transactionVelocityService.flagForReview(savedTransaction, velocityViolations);
     }
 
 }
