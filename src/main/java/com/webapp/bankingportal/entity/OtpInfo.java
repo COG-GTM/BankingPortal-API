@@ -29,6 +29,9 @@ public class OtpInfo {
     @Column
     private LocalDateTime generatedAt;
 
+    @Column(nullable = false)
+    private int failedAttempts;
+
     public OtpInfo(String accountNumber, String otp, LocalDateTime generatedAt) {
         this.accountNumber = accountNumber;
         this.otp = otp;
