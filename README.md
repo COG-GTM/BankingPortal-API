@@ -56,6 +56,10 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 
 ![project](https://github.com/abhi9720/BankingPortal-API/assets/68281476/45bca1e0-0af2-4d63-a8d0-efd7b67df6bf)
 
+## Security Headers & CSRF
+
+The API sends `Content-Security-Policy`, `Strict-Transport-Security` (HTTPS only), `X-Frame-Options: DENY` and `X-Content-Type-Options: nosniff` on every response. CSRF protection is intentionally disabled because authentication is stateless and bearer-token based. See [docs/security-headers-and-csrf.md](docs/security-headers-and-csrf.md) for the policies and reasoning.
+
 ## Error Handling
 
 The API implements global exception handling for common error scenarios, such as account not found, unauthorized access, and insufficient balance.
