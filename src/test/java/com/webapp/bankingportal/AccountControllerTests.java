@@ -1,15 +1,19 @@
 package com.webapp.bankingportal;
 
+import java.util.HashMap;
+
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import com.webapp.bankingportal.dto.AmountRequest;
 import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
+import com.webapp.bankingportal.dto.PinUnlockRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
@@ -679,6 +683,96 @@ public class AccountControllerTests extends BaseTest {
     public void test_transactions_unauthorized_access() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders
                 .get("/api/account/transactions"))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized());
+    }
+
+    private void performDeposit(String token, AmountRequest amountRequest,
+            ResultMatcher status) throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/account/deposit")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(amountRequest)))
+                .andExpect(status);
+    }
+
+    private void lockPin(HashMap<String, String> userDetails) throws Exception {
+        val accountNumber = userDetails.get("accountNumber");
+        val pin = userDetails.get("pin");
+        for (int i = 0; i < 3; i++) {
+            String wrongPin;
+            do {
+                wrongPin = getRandomPin();
+            } while (wrongPin.equals(pin));
+            val expected = i < 2 ? MockMvcResultMatchers.status().isUnauthorized()
+                    : MockMvcResultMatchers.status().isLocked();
+            performDeposit(userDetails.get("token"), new AmountRequest(accountNumber, wrongPin, 100.0 + i * 100),
+                    expected);
+        }
+    }
+
+    @Test
+    public void test_deposit_locked_after_repeated_invalid_pins() throws Exception {
+        val userDetails = createAndLoginUserWithPin();
+        lockPin(userDetails);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/account/deposit")
+                .header("Authorization", "Bearer " + userDetails.get("token"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(
+                        new AmountRequest(userDetails.get("accountNumber"), userDetails.get("pin"), 100.0))))
+                .andExpect(MockMvcResultMatchers.status().isLocked())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(CoreMatchers.containsString("PIN is locked")));
+    }
+
+    @Test
+    public void test_unlock_pin_with_valid_password() throws Exception {
+        val userDetails = createAndLoginUserWithPin();
+        lockPin(userDetails);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/account/pin/unlock")
+                .header("Authorization", "Bearer " + userDetails.get("token"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(
+                        new PinUnlockRequest(userDetails.get("accountNumber"), userDetails.get("password")))))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.PIN_UNLOCK_SUCCESS.getMessage()));
+
+        performDeposit(userDetails.get("token"),
+                new AmountRequest(userDetails.get("accountNumber"), userDetails.get("pin"), 1000.0),
+                MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    public void test_unlock_pin_with_invalid_password() throws Exception {
+        val userDetails = createAndLoginUserWithPin();
+        lockPin(userDetails);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/account/pin/unlock")
+                .header("Authorization", "Bearer " + userDetails.get("token"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(
+                        new PinUnlockRequest(userDetails.get("accountNumber"), getRandomPassword()))))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.PASSWORD_INVALID_ERROR.getMessage()));
+
+        performDeposit(userDetails.get("token"),
+                new AmountRequest(userDetails.get("accountNumber"), userDetails.get("pin"), 1000.0),
+                MockMvcResultMatchers.status().isLocked());
+    }
+
+    @Test
+    public void test_unlock_pin_without_authorization() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/account/pin/unlock")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new PinUnlockRequest(getRandomAccountNumber(), getRandomPassword()))))
                 .andExpect(MockMvcResultMatchers.status().isUnauthorized());
     }
 

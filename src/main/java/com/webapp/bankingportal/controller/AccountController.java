@@ -7,6 +7,7 @@ import org.springframework.cache.annotation.Cacheable;
 import com.webapp.bankingportal.dto.AmountRequest;
 import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
+import com.webapp.bankingportal.dto.PinUnlockRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
 import com.webapp.bankingportal.service.AccountService;
 import com.webapp.bankingportal.service.TransactionService;
@@ -55,6 +56,15 @@ public class AccountController {
                 pinUpdateRequest.newPin());
 
         return ResponseEntity.ok(ApiMessages.PIN_UPDATE_SUCCESS.getMessage());
+    }
+
+    @PostMapping("/pin/unlock")
+    public ResponseEntity<String> unlockPIN(@RequestBody PinUnlockRequest pinUnlockRequest) {
+        accountService.unlockPin(
+                LoggedinUser.getAccountNumber(),
+                pinUnlockRequest.password());
+
+        return ResponseEntity.ok(ApiMessages.PIN_UNLOCK_SUCCESS.getMessage());
     }
 
     @PostMapping("/deposit")

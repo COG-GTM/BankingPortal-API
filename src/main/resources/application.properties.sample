@@ -30,3 +30,7 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 # Geolocation API
 geo.api.url=https://api.findip.net/
 geo.api.key=your-api-key
+
+# PIN lockout
+pin.lockout.max-attempts=3
+pin.lockout.duration-minutes=30

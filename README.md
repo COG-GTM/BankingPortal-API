@@ -60,6 +60,31 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 
 The API implements global exception handling for common error scenarios, such as account not found, unauthorized access, and insufficient balance.
 
+## PIN Lockout
+
+PIN-protected operations (`/api/account/deposit`, `/api/account/withdraw`, `/api/account/fund-transfer`, `/api/account/pin/update`) lock the account's PIN after repeated incorrect PINs.
+
+- After `pin.lockout.max-attempts` (default `3`) consecutive incorrect PINs, the PIN is locked for `pin.lockout.duration-minutes` (default `30`). The request that triggers the lock, and every PIN-protected request while locked (even with the correct PIN), returns `423 Locked`.
+- A successful PIN entry resets the failed-attempt counter to zero.
+- Empty PINs are rejected without counting as a failed attempt.
+
+### Unlocking a PIN
+
+A locked PIN is unlocked in either of two ways:
+
+1. **Wait it out:** the lock expires automatically after `pin.lockout.duration-minutes`.
+2. **Unlock with the account password:** while logged in, call
+
+   ```http
+   POST /api/account/pin/unlock
+   Authorization: Bearer <token>
+   Content-Type: application/json
+
+   { "password": "<account password>" }
+   ```
+
+   A correct password returns `200 OK` with `{"msg": "PIN unlocked successfully"}` and resets the lock and counter. An incorrect password returns `401 Unauthorized` and leaves the lock in place. If you have forgotten your password, reset it first via the OTP-based flow under `/api/auth/password-reset`.
+
 ## How to Contribute
 
 We welcome and encourage developers to contribute to the project and help us make it even better. If you are interested in contributing, follow these steps:
