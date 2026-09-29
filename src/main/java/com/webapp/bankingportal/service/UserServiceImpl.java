@@ -5,6 +5,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -43,6 +44,7 @@ public class UserServiceImpl implements UserService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final GeolocationService geolocationService;
+    private final LoginAttemptService loginAttemptService;
     private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
@@ -101,6 +103,7 @@ public class UserServiceImpl implements UserService {
         try {
             user.setPassword(passwordEncoder.encode(newPassword));
             userRepository.save(user);
+            loginAttemptService.reset(user.getAccount().getAccountNumber());
             return true;
         } catch (Exception e) {
             throw new PasswordResetException(ApiMessages.PASSWORD_RESET_FAILURE.getMessage(), e);
@@ -166,8 +169,17 @@ public class UserServiceImpl implements UserService {
     private User authenticateUser(LoginRequest loginRequest) {
         val user = getUserByIdentifier(loginRequest.identifier());
         val accountNumber = user.getAccount().getAccountNumber();
-        authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(accountNumber, loginRequest.password()));
+        loginAttemptService.assertNotLocked(accountNumber);
+
+        try {
+            authenticationManager
+                    .authenticate(new UsernamePasswordAuthenticationToken(accountNumber, loginRequest.password()));
+        } catch (BadCredentialsException e) {
+            loginAttemptService.recordFailure(accountNumber);
+            throw e;
+        }
+
+        loginAttemptService.reset(accountNumber);
         return user;
     }
 

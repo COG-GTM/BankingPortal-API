@@ -30,3 +30,11 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 # Geolocation API
 geo.api.url=https://api.findip.net/
 geo.api.key=your-api-key
+
+# Login lockout & exponential backoff (see README "Account lockout and login backoff")
+security.login-lockout.enabled=true
+security.login-lockout.max-attempts=5
+security.login-lockout.base-lock-duration=1m
+security.login-lockout.backoff-multiplier=2.0
+security.login-lockout.max-lock-duration=1h
+security.login-lockout.failure-reset-window=24h

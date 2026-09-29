@@ -1,5 +1,6 @@
 package com.webapp.bankingportal.controller;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -10,6 +11,7 @@ import org.springframework.web.context.request.WebRequest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.webapp.bankingportal.exception.AccountDoesNotExistException;
+import com.webapp.bankingportal.exception.AccountLockedException;
 import com.webapp.bankingportal.exception.FundTransferException;
 import com.webapp.bankingportal.exception.GeolocationException;
 import com.webapp.bankingportal.exception.InsufficientBalanceException;
@@ -33,6 +35,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleAccountDoesNotExistException(
             AccountDoesNotExistException ex) {
         return ResponseEntity.badRequest().body(ex.getMessage());
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<String> handleAccountLockedException(AccountLockedException ex) {
+        long retryAfterSeconds = Math.max(1, (ex.getRetryAfter().toMillis() + 999) / 1000);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds))
+                .body(ex.getMessage());
     }
 
     @ExceptionHandler(BadCredentialsException.class)

@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public enum ApiMessages {
+    ACCOUNT_LOCKED("Account temporarily locked due to repeated failed login attempts. Try again in %d seconds"),
     ACCOUNT_NOT_FOUND("Account does not exist"),
     AMOUNT_EXCEED_100_000_ERROR("Amount cannot be greater than 100,000"),
     AMOUNT_INVALID_ERROR("Invalid amount"),

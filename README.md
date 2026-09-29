@@ -52,6 +52,41 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 3. Configure MySQL: Set up a MySQL database, create a copy of `application.properties.sample`, rename it `application.properties`, and update the properties as needed.
 4. Build and run the project: `mvn spring-boot:run`
 
+## Account lockout and login backoff
+
+Password logins (`POST /api/users/login`) are protected by a per-account lockout with exponential backoff.
+
+**Behaviour**
+
+- Failed password attempts are counted per account number (identifier resolved to the account first).
+- When the consecutive failure count reaches `max-attempts`, the account is locked for `base-lock-duration`.
+- While locked, every password login for that account is rejected with `429 Too Many Requests`, a `Retry-After` header (seconds) and a message, **without checking the password**. Attempts during a lock do not extend it.
+- After the lock expires the user gets one attempt. Each further failure re-locks for `base-lock-duration * backoff-multiplier^(failures - max-attempts)`, capped at `max-lock-duration`. With defaults: 1m, 2m, 4m, 8m, ... 1h.
+- A successful login or a successful password reset clears the counter and any lock.
+- If no failure happens for `failure-reset-window`, the next failure starts counting from 1 again.
+- OTP login (`/api/users/verify-otp`) and the password-reset flow are not blocked by the lockout, so a locked-out user can still recover through their email.
+
+**Configuration** (`application.properties`, env vars such as `SECURITY_LOGINLOCKOUT_MAXATTEMPTS` also work)
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `security.login-lockout.enabled` | `true` | Kill switch. When `false`, failures are not recorded and no account is locked. |
+| `security.login-lockout.max-attempts` | `5` | Consecutive failures before the first lock (>= 1). |
+| `security.login-lockout.base-lock-duration` | `1m` | Duration of the first lock (> 0). |
+| `security.login-lockout.backoff-multiplier` | `2.0` | Growth factor per additional failure (>= 1.0; `1.0` = fixed-duration lock). |
+| `security.login-lockout.max-lock-duration` | `1h` | Cap on a single lock (>= `base-lock-duration`). |
+| `security.login-lockout.failure-reset-window` | `24h` | Idle period after which the failure counter is forgotten (> 0). |
+
+Durations accept Spring Boot formats (`30s`, `15m`, `PT1H`). Invalid values fail application startup.
+
+**Operations**
+
+- State lives in the `login_attempt` table (`account_number`, `failed_attempts`, `last_failure_at`, `locked_until`, UTC), so it is shared across instances and survives restarts. The table is created by Hibernate `ddl-auto`.
+- Manually unlock an account: `DELETE FROM login_attempt WHERE account_number = '<account>';`
+- Locks are logged at `WARN` by `LoginAttemptServiceImpl` (`Account <n> locked for <s>s after <k> consecutive failed logins`); alert on a spike of these to detect credential-stuffing.
+- Lock expiry uses the application server clock; keep instance clocks NTP-synced.
+- The lockout is per account, not per IP. An attacker who knows an account number can keep it locked (bounded by `max-lock-duration` per attempt); pair it with IP-based rate limiting at the edge.
+
 ## Screenshots
 
 ![project](https://github.com/abhi9720/BankingPortal-API/assets/68281476/45bca1e0-0af2-4d63-a8d0-efd7b67df6bf)

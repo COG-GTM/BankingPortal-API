@@ -29,6 +29,42 @@
             "name": "geo.api.key",
             "type": "java.lang.String",
             "description": "Geolocation API key"
+        },
+        {
+            "name": "security.login-lockout.enabled",
+            "type": "java.lang.Boolean",
+            "defaultValue": true,
+            "description": "Enable account lockout and exponential backoff after repeated failed password logins."
+        },
+        {
+            "name": "security.login-lockout.max-attempts",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "Consecutive failed password logins that trigger the first lockout."
+        },
+        {
+            "name": "security.login-lockout.base-lock-duration",
+            "type": "java.time.Duration",
+            "defaultValue": "1m",
+            "description": "Lock duration applied when max-attempts is first reached."
+        },
+        {
+            "name": "security.login-lockout.backoff-multiplier",
+            "type": "java.lang.Double",
+            "defaultValue": 2.0,
+            "description": "Factor the lock duration is multiplied by for each additional failed login after a lock expires."
+        },
+        {
+            "name": "security.login-lockout.max-lock-duration",
+            "type": "java.time.Duration",
+            "defaultValue": "1h",
+            "description": "Upper bound for a single lock duration."
+        },
+        {
+            "name": "security.login-lockout.failure-reset-window",
+            "type": "java.time.Duration",
+            "defaultValue": "24h",
+            "description": "Failure counter is reset if no failed login occurs within this window."
         }
     ]
 }
