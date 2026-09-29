@@ -1,5 +1,8 @@
 package com.webapp.bankingportal.controller;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -92,10 +95,15 @@ public class AccountController {
     }
 
     @GetMapping("/transactions")
-    public ResponseEntity<String> getAllTransactionsByAccountNumber() {
-        val transactions = transactionService
-                .getAllTransactionsByAccountNumber(LoggedinUser.getAccountNumber());
-        return ResponseEntity.ok(JsonUtil.toJson(transactions));
+    public ResponseEntity<String> getAllTransactionsByAccountNumber(
+            @PageableDefault(size = 20, sort = "transactionDate", direction = Sort.Direction.DESC) Pageable pageable) {
+        val page = transactionService.getTransactionHistory(LoggedinUser.getAccountNumber(), pageable);
+        return ResponseEntity.ok()
+                .header("X-Total-Count", String.valueOf(page.getTotalElements()))
+                .header("X-Total-Pages", String.valueOf(page.getTotalPages()))
+                .header("X-Page", String.valueOf(page.getNumber()))
+                .header("X-Page-Size", String.valueOf(page.getSize()))
+                .body(JsonUtil.toJson(page.getContent()));
     }
     @GetMapping("/send-statement")
     public ResponseEntity<String> sendBankStatement() {

@@ -1,13 +1,16 @@
 package com.webapp.bankingportal.service;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
-import com.webapp.bankingportal.repository.AccountRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.webapp.bankingportal.dto.TransactionDTO;
-import com.webapp.bankingportal.mapper.TransactionMapper;
+import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.repository.TransactionRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -17,23 +20,50 @@ import lombok.val;
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
 
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Set<String> SORTABLE_PROPERTIES = Set.of("id", "amount", "transactionType", "transactionDate");
+    private static final Sort DEFAULT_SORT = Sort.by(Sort.Order.desc("transactionDate"), Sort.Order.desc("id"));
+
     private final TransactionRepository transactionRepository;
-    private final TransactionMapper transactionMapper;
     private final EmailService emailService;
     private final AccountRepository accountRepository;
 
     @Override
     public List<TransactionDTO> getAllTransactionsByAccountNumber(String accountNumber) {
-        val transactions = transactionRepository
-                .findBySourceAccount_AccountNumberOrTargetAccount_AccountNumber(accountNumber, accountNumber);
-
-        val transactionDTOs = transactions.parallelStream()
-                .map(transactionMapper::toDto)
-                .sorted((t1, t2) -> t2.getTransactionDate().compareTo(t1.getTransactionDate()))
-                .collect(Collectors.toList());
-
-        return transactionDTOs;
+        return accountRepository.findIdByAccountNumber(accountNumber)
+                .map(accountId -> transactionRepository.findHistoryByAccountId(accountId, DEFAULT_SORT))
+                .orElseGet(List::of);
     }
+
+    @Override
+    public Page<TransactionDTO> getTransactionHistory(String accountNumber, Pageable pageable) {
+        val pageRequest = toPageRequest(pageable);
+        return accountRepository.findIdByAccountNumber(accountNumber)
+                .map(accountId -> transactionRepository.findHistoryByAccountId(accountId, pageRequest))
+                .orElseGet(() -> Page.empty(pageRequest));
+    }
+
+    private static PageRequest toPageRequest(Pageable pageable) {
+        var sort = pageable.getSort();
+        for (val order : sort) {
+            if (!SORTABLE_PROPERTIES.contains(order.getProperty())) {
+                throw new IllegalArgumentException("Unsupported sort property: " + order.getProperty());
+            }
+        }
+
+        if (sort.isUnsorted()) {
+            sort = DEFAULT_SORT;
+        } else if (sort.getOrderFor("id") == null) {
+            sort = sort.and(Sort.by(Sort.Order.desc("id")));
+        }
+
+        if (pageable.isUnpaged()) {
+            return PageRequest.of(0, MAX_PAGE_SIZE, sort);
+        }
+
+        return PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), MAX_PAGE_SIZE), sort);
+    }
+
     public void sendBankStatementByEmail(String accountNumber) {
         if (accountNumber == null || accountNumber.trim().isEmpty()) {
             throw new IllegalArgumentException("Account number must not be null or empty");
