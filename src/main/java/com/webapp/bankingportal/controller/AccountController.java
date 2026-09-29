@@ -9,6 +9,7 @@ import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
 import com.webapp.bankingportal.service.AccountService;
+import com.webapp.bankingportal.service.PayeeService;
 import com.webapp.bankingportal.service.TransactionService;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
@@ -24,6 +25,7 @@ public class AccountController {
 
     private final AccountService accountService;
     private final TransactionService transactionService;
+    private final PayeeService payeeService;
 
     @GetMapping("/pin/check")
     public ResponseEntity<String> checkAccountPIN() {
@@ -82,9 +84,15 @@ public class AccountController {
     @PostMapping("/fund-transfer")
     @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/fund-transfer' + ':' + (#fundTransferRequest).hashCode()")
     public ResponseEntity<String> fundTransfer(@RequestBody FundTransferRequest fundTransferRequest) {
+        val sourceAccountNumber = LoggedinUser.getAccountNumber();
+        val targetAccountNumber = payeeService.resolveTransferTarget(
+                sourceAccountNumber,
+                fundTransferRequest.payeeId(),
+                fundTransferRequest.targetAccountNumber());
+
         accountService.fundTransfer(
-                LoggedinUser.getAccountNumber(),
-                fundTransferRequest.targetAccountNumber(),
+                sourceAccountNumber,
+                targetAccountNumber,
                 fundTransferRequest.pin(),
                 fundTransferRequest.amount());
 
