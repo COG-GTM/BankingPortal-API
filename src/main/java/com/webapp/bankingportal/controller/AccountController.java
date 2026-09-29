@@ -91,6 +91,16 @@ public class AccountController {
         return ResponseEntity.ok(ApiMessages.CASH_TRANSFER_SUCCESS.getMessage());
     }
 
+    @PostMapping("/fund-transfer/preview")
+    public ResponseEntity<String> previewFundTransfer(@RequestBody FundTransferRequest fundTransferRequest) {
+        val preview = accountService.previewFundTransfer(
+                LoggedinUser.getAccountNumber(),
+                fundTransferRequest.targetAccountNumber(),
+                fundTransferRequest.amount());
+
+        return ResponseEntity.ok(JsonUtil.toJson(preview));
+    }
+
     @GetMapping("/transactions")
     public ResponseEntity<String> getAllTransactionsByAccountNumber() {
         val transactions = transactionService

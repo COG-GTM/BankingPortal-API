@@ -41,6 +41,8 @@ public enum ApiMessages {
     PIN_INVALID_ERROR("Invalid PIN"),
     PIN_NOT_CREATED("PIN has not been created for this account"),
     PIN_UPDATE_SUCCESS("{\"hasPIN\": false, \"msg\": \"PIN updated successfully\"}"),
+    TRANSFER_APPROACHING_LIMIT_WARNING("Amount is close to the per-transaction limit of 100,000"),
+    TRANSFER_LOW_BALANCE_WARNING("Resulting balance will be below the low-balance threshold"),
     TOKEN_ALREADY_EXISTS_ERROR("Token already exists"),
     TOKEN_EMPTY_ERROR("Token is empty"),
     TOKEN_EXPIRED_ERROR("Token has expired"),
