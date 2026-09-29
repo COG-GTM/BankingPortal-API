@@ -16,6 +16,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.webapp.bankingportal.audit.SecurityAuditLogger;
+import com.webapp.bankingportal.audit.TokenRevocationReason;
 import com.webapp.bankingportal.entity.Token;
 import com.webapp.bankingportal.exception.InvalidTokenException;
 import com.webapp.bankingportal.repository.AccountRepository;
@@ -41,6 +43,7 @@ public class TokenServiceImpl implements TokenService {
     private final UserRepository userRepository;
     private final TokenRepository tokenRepository;
     private final AccountRepository accountRepository;
+    private final SecurityAuditLogger securityAuditLogger;
 
     @Override
     public String getUsernameFromToken(String token) throws InvalidTokenException {
@@ -49,14 +52,14 @@ public class TokenServiceImpl implements TokenService {
 
     @Override
     public String generateToken(UserDetails userDetails) {
-        log.info("Generating token for user: " + userDetails.getUsername());
+        log.debug("Generating token");
         return doGenerateToken(userDetails,
                 new Date(System.currentTimeMillis() + expiration));
     }
 
     @Override
     public String generateToken(UserDetails userDetails, Date expiry) {
-        log.info("Generating token for user: " + userDetails.getUsername());
+        log.debug("Generating token");
         return doGenerateToken(userDetails, expiry);
     }
     private Key key() {
@@ -107,7 +110,7 @@ public class TokenServiceImpl implements TokenService {
           //  return parser().parseClaimsJws(token).getBody();
         } catch (ExpiredJwtException e) {
             // Delete expired token
-            invalidateToken(token);
+            invalidateToken(token, TokenRevocationReason.EXPIRED);
 
             throw new InvalidTokenException(ApiMessages.TOKEN_EXPIRED_ERROR.getMessage());
 
@@ -134,7 +137,7 @@ public class TokenServiceImpl implements TokenService {
         val account = accountRepository.findByAccountNumber(
                 getUsernameFromToken(token));
 
-        log.info("Saving token for account: " + account.getAccountNumber());
+        log.debug("Saving token");
 
         val tokenObj = new Token(
                 token,
@@ -154,9 +157,25 @@ public class TokenServiceImpl implements TokenService {
     @Override
     @Transactional
     public void invalidateToken(String token) {
-        if (tokenRepository.findByToken(token) != null) {
+        invalidateToken(token, TokenRevocationReason.EXPLICIT);
+    }
+
+    @Override
+    @Transactional
+    public void invalidateToken(String token, TokenRevocationReason reason) {
+        val storedToken = tokenRepository.findByToken(token);
+        if (storedToken != null) {
             tokenRepository.deleteByToken(token);
+            securityAuditLogger.tokenRevoked(reason, userIdOf(storedToken));
         }
+    }
+
+    private static Long userIdOf(Token token) {
+        val account = token.getAccount();
+        if (account == null || account.getUser() == null) {
+            return null;
+        }
+        return account.getUser().getId();
     }
 
 }

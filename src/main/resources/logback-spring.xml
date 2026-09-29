@@ -17,6 +17,9 @@
         </encoder>
     </appender>
 
+    <!-- Security audit events (structured key=value, no PII/secrets) -->
+    <logger name="SECURITY_AUDIT" level="INFO" />
+
     <!-- Root logger configuration -->
     <root level="INFO">
         <appender-ref ref="CONSOLE" />

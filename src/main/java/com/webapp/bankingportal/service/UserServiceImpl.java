@@ -5,13 +5,19 @@ import java.util.concurrent.CompletableFuture;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.ModelAndView;
 
+import com.webapp.bankingportal.audit.AuditFailureReason;
+import com.webapp.bankingportal.audit.AuthMethod;
+import com.webapp.bankingportal.audit.SecurityAuditLogger;
+import com.webapp.bankingportal.audit.TokenRevocationReason;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
@@ -45,6 +51,7 @@ public class UserServiceImpl implements UserService {
     private final GeolocationService geolocationService;
     private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityAuditLogger securityAuditLogger;
     private final TokenService tokenService;
     private final UserDetailsService userDetailsService;
     private final UserMapper userMapper;
@@ -65,6 +72,7 @@ public class UserServiceImpl implements UserService {
         val user = authenticateUser(loginRequest);
         sendLoginNotification(user, request.getRemoteAddr());
         val token = generateAndSaveToken(user.getAccount().getAccountNumber());
+        securityAuditLogger.loginSucceeded(AuthMethod.PASSWORD, user.getId());
         return ResponseEntity.ok(String.format(ApiMessages.TOKEN_ISSUED_SUCCESS.getMessage(), token));
     }
 
@@ -79,9 +87,10 @@ public class UserServiceImpl implements UserService {
     public ResponseEntity<String> verifyOtpAndLogin(OtpVerificationRequest otpVerificationRequest)
             throws InvalidTokenException {
         validateOtpRequest(otpVerificationRequest);
-        val user = getUserByIdentifier(otpVerificationRequest.identifier());
+        val user = getUserForLogin(otpVerificationRequest.identifier(), AuthMethod.OTP);
         validateOtp(user, otpVerificationRequest.otp());
         val token = generateAndSaveToken(user.getAccount().getAccountNumber());
+        securityAuditLogger.loginSucceeded(AuthMethod.OTP, user.getId());
         return ResponseEntity.ok(String.format(ApiMessages.TOKEN_ISSUED_SUCCESS.getMessage(), token));
     }
 
@@ -111,9 +120,7 @@ public class UserServiceImpl implements UserService {
     public ModelAndView logout(String token) throws InvalidTokenException {
         token = token.substring(7);
         tokenService.validateToken(token);
-        tokenService.invalidateToken(token);
-
-        log.info("User logged out successfully {}", tokenService.getUsernameFromToken(token));
+        tokenService.invalidateToken(token, TokenRevocationReason.LOGOUT);
 
         return new ModelAndView("redirect:/logout");
     }
@@ -164,11 +171,28 @@ public class UserServiceImpl implements UserService {
     }
 
     private User authenticateUser(LoginRequest loginRequest) {
-        val user = getUserByIdentifier(loginRequest.identifier());
+        val user = getUserForLogin(loginRequest.identifier(), AuthMethod.PASSWORD);
         val accountNumber = user.getAccount().getAccountNumber();
-        authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(accountNumber, loginRequest.password()));
+        try {
+            authenticationManager
+                    .authenticate(new UsernamePasswordAuthenticationToken(accountNumber, loginRequest.password()));
+        } catch (AuthenticationException e) {
+            val reason = e instanceof BadCredentialsException
+                    ? AuditFailureReason.BAD_CREDENTIALS
+                    : AuditFailureReason.AUTHENTICATION_ERROR;
+            securityAuditLogger.loginFailed(AuthMethod.PASSWORD, reason, user.getId());
+            throw e;
+        }
         return user;
+    }
+
+    private User getUserForLogin(String identifier, AuthMethod method) {
+        try {
+            return getUserByIdentifier(identifier);
+        } catch (UserInvalidException e) {
+            securityAuditLogger.loginFailed(method, AuditFailureReason.UNKNOWN_IDENTIFIER, null);
+            throw e;
+        }
     }
 
     private void authenticateUser(String accountNumber, String password) {
@@ -206,6 +230,7 @@ public class UserServiceImpl implements UserService {
 
     private void validateOtp(User user, String otp) {
         if (!otpService.validateOTP(user.getAccount().getAccountNumber(), otp)) {
+            securityAuditLogger.loginFailed(AuthMethod.OTP, AuditFailureReason.INVALID_OTP, user.getId());
             throw new UnauthorizedException(ApiMessages.OTP_INVALID_ERROR.getMessage());
         }
     }

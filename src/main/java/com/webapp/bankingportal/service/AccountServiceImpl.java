@@ -7,6 +7,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.webapp.bankingportal.audit.AuditFailureReason;
+import com.webapp.bankingportal.audit.PinOperation;
+import com.webapp.bankingportal.audit.SecurityAuditLogger;
 import com.webapp.bankingportal.entity.Account;
 import com.webapp.bankingportal.entity.Transaction;
 import com.webapp.bankingportal.entity.TransactionType;
@@ -36,6 +39,7 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+    private final SecurityAuditLogger securityAuditLogger;
 
     @Override
     public Account createAccount(User user) {
@@ -102,6 +106,16 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public void createPin(String accountNumber, String password, String pin) {
+        try {
+            doCreatePin(accountNumber, password, pin);
+        } catch (RuntimeException e) {
+            auditPinChangeFailure(PinOperation.CREATE, accountNumber, e);
+            throw e;
+        }
+        securityAuditLogger.pinChanged(PinOperation.CREATE, userIdOf(accountNumber));
+    }
+
+    private void doCreatePin(String accountNumber, String password, String pin) {
         validatePassword(accountNumber, password);
 
         val account = accountRepository.findByAccountNumber(accountNumber);
@@ -123,8 +137,16 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public void updatePin(String accountNumber, String oldPin, String password, String newPin) {
-        log.info("Updating PIN for account: {}", accountNumber);
+        try {
+            doUpdatePin(accountNumber, oldPin, password, newPin);
+        } catch (RuntimeException e) {
+            auditPinChangeFailure(PinOperation.UPDATE, accountNumber, e);
+            throw e;
+        }
+        securityAuditLogger.pinChanged(PinOperation.UPDATE, userIdOf(accountNumber));
+    }
 
+    private void doUpdatePin(String accountNumber, String oldPin, String password, String newPin) {
         validatePassword(accountNumber, password);
         validatePin(accountNumber, oldPin);
 
@@ -140,6 +162,28 @@ public class AccountServiceImpl implements AccountService {
 
         account.setPin(passwordEncoder.encode(newPin));
         accountRepository.save(account);
+    }
+
+    private void auditPinChangeFailure(PinOperation operation, String accountNumber, RuntimeException e) {
+        final AuditFailureReason reason;
+        if (e instanceof NotFoundException) {
+            reason = AuditFailureReason.ACCOUNT_NOT_FOUND;
+        } else if (e instanceof UnauthorizedException) {
+            reason = AuditFailureReason.VERIFICATION_FAILED;
+        } else if (e instanceof InvalidPinException) {
+            reason = AuditFailureReason.INVALID_NEW_PIN;
+        } else {
+            reason = AuditFailureReason.OTHER;
+        }
+        securityAuditLogger.pinChangeFailed(operation, reason, userIdOf(accountNumber));
+    }
+
+    private Long userIdOf(String accountNumber) {
+        val account = accountRepository.findByAccountNumber(accountNumber);
+        if (account == null || account.getUser() == null) {
+            return null;
+        }
+        return account.getUser().getId();
     }
 
     private void validateAmount(double amount) {
