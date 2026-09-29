@@ -15,6 +15,7 @@ import org.springframework.web.servlet.ModelAndView;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
+import com.webapp.bankingportal.dto.TokenResponse;
 import com.webapp.bankingportal.dto.UserResponse;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
@@ -45,6 +46,7 @@ public class UserServiceImpl implements UserService {
     private final GeolocationService geolocationService;
     private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
     private final TokenService tokenService;
     private final UserDetailsService userDetailsService;
     private final UserMapper userMapper;
@@ -64,8 +66,7 @@ public class UserServiceImpl implements UserService {
             throws InvalidTokenException {
         val user = authenticateUser(loginRequest);
         sendLoginNotification(user, request.getRemoteAddr());
-        val token = generateAndSaveToken(user.getAccount().getAccountNumber());
-        return ResponseEntity.ok(String.format(ApiMessages.TOKEN_ISSUED_SUCCESS.getMessage(), token));
+        return ResponseEntity.ok(issueTokens(user));
     }
 
     @Override
@@ -81,8 +82,7 @@ public class UserServiceImpl implements UserService {
         validateOtpRequest(otpVerificationRequest);
         val user = getUserByIdentifier(otpVerificationRequest.identifier());
         validateOtp(user, otpVerificationRequest.otp());
-        val token = generateAndSaveToken(user.getAccount().getAccountNumber());
-        return ResponseEntity.ok(String.format(ApiMessages.TOKEN_ISSUED_SUCCESS.getMessage(), token));
+        return ResponseEntity.ok(issueTokens(user));
     }
 
     @Override
@@ -173,6 +173,12 @@ public class UserServiceImpl implements UserService {
 
     private void authenticateUser(String accountNumber, String password) {
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(accountNumber, password));
+    }
+
+    private String issueTokens(User user) throws InvalidTokenException {
+        val accessToken = generateAndSaveToken(user.getAccount().getAccountNumber());
+        val refreshToken = refreshTokenService.issue(user.getAccount());
+        return JsonUtil.toJson(new TokenResponse(accessToken, refreshToken));
     }
 
     private String generateAndSaveToken(String accountNumber) throws InvalidTokenException {

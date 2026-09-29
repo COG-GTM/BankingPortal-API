@@ -9,11 +9,15 @@ import org.springframework.stereotype.Service;
 
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
+import com.webapp.bankingportal.dto.RefreshTokenRequest;
 import com.webapp.bankingportal.dto.ResetPasswordRequest;
+import com.webapp.bankingportal.dto.TokenResponse;
 import com.webapp.bankingportal.entity.PasswordResetToken;
 import com.webapp.bankingportal.entity.User;
+import com.webapp.bankingportal.exception.InvalidTokenException;
 import com.webapp.bankingportal.repository.PasswordResetTokenRepository;
 import com.webapp.bankingportal.util.ApiMessages;
+import com.webapp.bankingportal.util.JsonUtil;
 
 import lombok.RequiredArgsConstructor;
 import lombok.val;
@@ -29,6 +33,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final OtpService otpService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final RefreshTokenService refreshTokenService;
+    private final TokenService tokenService;
     private final UserService userService;
 
     @Override
@@ -97,6 +103,7 @@ public class AuthServiceImpl implements AuthService {
         try {
             boolean passwordResetSuccessful = userService.resetPassword(user, resetPasswordRequest.newPassword());
             if (passwordResetSuccessful) {
+                refreshTokenService.revokeAllForAccount(user.getAccount());
                 return ResponseEntity.ok(ApiMessages.PASSWORD_RESET_SUCCESS.getMessage());
             } else {
                 return ResponseEntity.internalServerError().body(ApiMessages.PASSWORD_RESET_FAILURE.getMessage());
@@ -105,6 +112,21 @@ public class AuthServiceImpl implements AuthService {
             log.error("Error resetting password for user: {}", user.getId(), e);
             return ResponseEntity.internalServerError().body(ApiMessages.PASSWORD_RESET_FAILURE.getMessage());
         }
+    }
+
+    @Override
+    @Transactional(noRollbackFor = InvalidTokenException.class)
+    public ResponseEntity<String> refreshToken(RefreshTokenRequest refreshTokenRequest) throws InvalidTokenException {
+        val rotation = refreshTokenService.rotate(refreshTokenRequest.refreshToken());
+        val accessToken = tokenService.generateToken(tokenService.loadUserByUsername(rotation.accountNumber()));
+        tokenService.saveToken(accessToken);
+        return ResponseEntity.ok(JsonUtil.toJson(new TokenResponse(accessToken, rotation.refreshToken())));
+    }
+
+    @Override
+    public ResponseEntity<String> revokeRefreshToken(RefreshTokenRequest refreshTokenRequest) {
+        refreshTokenService.revoke(refreshTokenRequest.refreshToken());
+        return ResponseEntity.ok(ApiMessages.REFRESH_TOKEN_REVOKED_SUCCESS.getMessage());
     }
 
     private boolean isExistingTokenValid(PasswordResetToken existingToken) {

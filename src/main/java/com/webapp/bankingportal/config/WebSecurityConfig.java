@@ -36,6 +36,8 @@ public class WebSecurityConfig {
             "/api/auth/password-reset/verify-otp",
             "/api/auth/password-reset/send-otp",
             "/api/auth/password-reset",
+            "/api/auth/token/refresh",
+            "/api/auth/token/revoke",
             "/api/users/generate-otp",
             "/api/users/verify-otp",
             "swagger-ui.html",

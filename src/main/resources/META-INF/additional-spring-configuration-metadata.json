@@ -11,6 +11,11 @@
             "description": "JWT expiration time in milliseconds"
         },
         {
+            "name": "jwt.refresh-expiration",
+            "type": "java.lang.Long",
+            "description": "Refresh token expiration time in milliseconds (default 7 days)"
+        },
+        {
             "name": "jwt.header",
             "type": "java.lang.String",
             "description": "JWT header"

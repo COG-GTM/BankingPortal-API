@@ -35,6 +35,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
     private final TokenService tokenService;
 
+    private static final String REFRESH_TOKEN_PATH_PREFIX = "/api/auth/token/";
+
+    /**
+     * Refresh-token endpoints authenticate with the refresh token in the body,
+     * so a stale or expired access token in the header must not reject them.
+     */
+    @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        return request.getRequestURI().startsWith(request.getContextPath() + REFRESH_TOKEN_PATH_PREFIX);
+    }
+
     /**
      * Performs the filtering for each request
      *
