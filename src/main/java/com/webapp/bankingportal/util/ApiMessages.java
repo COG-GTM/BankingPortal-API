@@ -31,7 +31,7 @@ public enum ApiMessages {
     PASSWORD_RESET_FAILURE("Failed to reset password"),
     PASSWORD_RESET_SUCCESS("{\"message\": \"Password reset successfully\"}"),
     PASSWORD_RESET_TOKEN_ISSUED("{\"passwordResetToken\": \"%s\"}"),
-    PASSWORD_TOO_LONG_ERROR("Password must be less than 128 characters long"),
+    PASSWORD_TOO_LONG_ERROR("Password must be at most 72 bytes long"),
     PASSWORD_TOO_SHORT_ERROR("Password must be at least 8 characters long"),
     PIN_ALREADY_EXISTS("PIN already created"),
     PIN_CREATED("PIN has been created for this account"),

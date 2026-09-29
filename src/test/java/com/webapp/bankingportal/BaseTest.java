@@ -61,7 +61,7 @@ public abstract class BaseTest {
     TokenService tokenService;
 
     protected static final int MIN_PASSWORD_LENGTH = 8;
-    protected static final int MAX_PASSWORD_LENGTH = 127;
+    protected static final int MAX_PASSWORD_LENGTH = 72;
 
     protected static final Faker faker = new Faker();
     protected static final PhoneNumberUtil phoneNumberUtil = PhoneNumberUtil.getInstance();
