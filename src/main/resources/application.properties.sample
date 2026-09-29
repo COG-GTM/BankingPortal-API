@@ -16,6 +16,8 @@ server.error.include-message=always
 jwt.secret=your-secret-key
 # Token expiration time in milliseconds (e.g., 24 hours)
 jwt.expiration=86400000
+# Refresh token lifetime in milliseconds (e.g., 7 days); each rotation issues a fresh token
+jwt.refresh-expiration=604800000
 jwt.header=Authorization
 jwt.prefix=Bearer
 

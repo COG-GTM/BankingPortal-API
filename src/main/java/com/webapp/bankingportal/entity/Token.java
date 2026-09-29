@@ -39,10 +39,18 @@ public class Token {
     @JoinColumn(name = "account_id")
     private Account account;
 
+    @Column(length = 36)
+    private String familyId;
+
     public Token(String token, Date expiryAt, Account account) {
         this.token = token;
         this.expiryAt = expiryAt;
         this.account = account;
+    }
+
+    public Token(String token, Date expiryAt, Account account, String familyId) {
+        this(token, expiryAt, account);
+        this.familyId = familyId;
     }
 
 }

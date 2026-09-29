@@ -5,6 +5,7 @@ import static org.springframework.security.core.userdetails.User.withUsername;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 import java.util.function.Function;
 
 import io.jsonwebtoken.*;
@@ -65,6 +66,7 @@ public class TokenServiceImpl implements TokenService {
     }
     private String doGenerateToken(UserDetails userDetails, Date expiry) {
         return Jwts.builder().setSubject(userDetails.getUsername())
+                .setId(UUID.randomUUID().toString())
                 .setIssuedAt(new Date())
                 .setExpiration(expiry)
                 .signWith(key(), SignatureAlgorithm.HS512).compact();
@@ -127,6 +129,11 @@ public class TokenServiceImpl implements TokenService {
 
     @Override
     public void saveToken(String token) throws InvalidTokenException {
+        saveToken(token, null);
+    }
+
+    @Override
+    public void saveToken(String token, String familyId) throws InvalidTokenException {
         if (tokenRepository.findByToken(token) != null) {
             throw new InvalidTokenException(ApiMessages.TOKEN_ALREADY_EXISTS_ERROR.getMessage());
         }
@@ -139,7 +146,8 @@ public class TokenServiceImpl implements TokenService {
         val tokenObj = new Token(
                 token,
                 getExpirationDateFromToken(token),
-                account);
+                account,
+                familyId);
 
         tokenRepository.save(tokenObj);
     }

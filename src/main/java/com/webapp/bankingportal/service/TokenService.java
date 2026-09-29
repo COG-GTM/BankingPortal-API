@@ -25,6 +25,8 @@ public interface TokenService extends UserDetailsService {
 
     public void saveToken(String token) throws InvalidTokenException;
 
+    public void saveToken(String token, String familyId) throws InvalidTokenException;
+
     public void validateToken(String token) throws InvalidTokenException;
 
     public void invalidateToken(String token);

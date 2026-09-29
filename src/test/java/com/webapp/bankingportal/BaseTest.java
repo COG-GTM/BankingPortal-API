@@ -165,6 +165,7 @@ public abstract class BaseTest {
         userDetails.put("accountNumber", accountNumber);
         userDetails.put("password", user.getPassword());
         userDetails.put("token", token);
+        userDetails.put("refreshToken", JsonPath.read(responseBody, "$.refreshToken"));
 
         return userDetails;
     }

@@ -6,7 +6,6 @@ import java.util.concurrent.CompletableFuture;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,8 +44,8 @@ public class UserServiceImpl implements UserService {
     private final GeolocationService geolocationService;
     private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
     private final TokenService tokenService;
-    private final UserDetailsService userDetailsService;
     private final UserMapper userMapper;
     private final UserRepository userRepository;
     private final ValidationUtil validationUtil;
@@ -64,8 +63,7 @@ public class UserServiceImpl implements UserService {
             throws InvalidTokenException {
         val user = authenticateUser(loginRequest);
         sendLoginNotification(user, request.getRemoteAddr());
-        val token = generateAndSaveToken(user.getAccount().getAccountNumber());
-        return ResponseEntity.ok(String.format(ApiMessages.TOKEN_ISSUED_SUCCESS.getMessage(), token));
+        return tokenPairResponse(user.getAccount().getAccountNumber());
     }
 
     @Override
@@ -81,8 +79,7 @@ public class UserServiceImpl implements UserService {
         validateOtpRequest(otpVerificationRequest);
         val user = getUserByIdentifier(otpVerificationRequest.identifier());
         validateOtp(user, otpVerificationRequest.otp());
-        val token = generateAndSaveToken(user.getAccount().getAccountNumber());
-        return ResponseEntity.ok(String.format(ApiMessages.TOKEN_ISSUED_SUCCESS.getMessage(), token));
+        return tokenPairResponse(user.getAccount().getAccountNumber());
     }
 
     @Override
@@ -111,6 +108,7 @@ public class UserServiceImpl implements UserService {
     public ModelAndView logout(String token) throws InvalidTokenException {
         token = token.substring(7);
         tokenService.validateToken(token);
+        refreshTokenService.revokeFamilyOfAccessToken(token);
         tokenService.invalidateToken(token);
 
         log.info("User logged out successfully {}", tokenService.getUsernameFromToken(token));
@@ -175,11 +173,10 @@ public class UserServiceImpl implements UserService {
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(accountNumber, password));
     }
 
-    private String generateAndSaveToken(String accountNumber) throws InvalidTokenException {
-        val userDetails = userDetailsService.loadUserByUsername(accountNumber);
-        val token = tokenService.generateToken(userDetails);
-        tokenService.saveToken(token);
-        return token;
+    private ResponseEntity<String> tokenPairResponse(String accountNumber) throws InvalidTokenException {
+        val tokenPair = refreshTokenService.issueTokenPair(accountNumber);
+        return ResponseEntity.ok(String.format(ApiMessages.TOKEN_PAIR_ISSUED_SUCCESS.getMessage(),
+                tokenPair.accessToken(), tokenPair.refreshToken()));
     }
 
     private ResponseEntity<String> sendOtpEmail(User user, String otp) {
