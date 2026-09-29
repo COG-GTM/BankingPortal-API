@@ -36,6 +36,8 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+    @Autowired
+    private final BalanceAuditService balanceAuditService;
 
     @Override
     public Account createAccount(User user) {
@@ -173,7 +175,10 @@ public class AccountServiceImpl implements AccountService {
         transaction.setTransactionType(TransactionType.CASH_DEPOSIT);
         transaction.setTransactionDate(new Date());
         transaction.setSourceAccount(account);
-        transactionRepository.save(transaction);
+        val savedTransaction = transactionRepository.save(transaction);
+
+        balanceAuditService.record(account, transaction.getTransactionType(), currentBalance, savedTransaction,
+                accountNumber, null);
     }
 
     @Transactional
@@ -197,7 +202,10 @@ public class AccountServiceImpl implements AccountService {
         transaction.setTransactionType(TransactionType.CASH_WITHDRAWAL);
         transaction.setTransactionDate(new Date());
         transaction.setSourceAccount(account);
-        transactionRepository.save(transaction);
+        val savedTransaction = transactionRepository.save(transaction);
+
+        balanceAuditService.record(account, transaction.getTransactionType(), currentBalance, savedTransaction,
+                accountNumber, null);
     }
 
     @Transactional
@@ -236,7 +244,12 @@ public class AccountServiceImpl implements AccountService {
         transaction.setTransactionDate(new Date());
         transaction.setSourceAccount(sourceAccount);
         transaction.setTargetAccount(targetAccount);
-        transactionRepository.save(transaction);
+        val savedTransaction = transactionRepository.save(transaction);
+
+        balanceAuditService.record(sourceAccount, TransactionType.CASH_TRANSFER, sourceBalance, savedTransaction,
+                sourceAccountNumber, targetAccountNumber);
+        balanceAuditService.record(targetAccount, TransactionType.CASH_CREDIT, targetBalance, savedTransaction,
+                sourceAccountNumber, sourceAccountNumber);
     }
 
 }

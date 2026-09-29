@@ -1,14 +1,19 @@
 package com.webapp.bankingportal.controller;
 
+import java.time.Instant;
+
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.cache.annotation.Cacheable;
 import com.webapp.bankingportal.dto.AmountRequest;
+import com.webapp.bankingportal.dto.BalanceAuditTrailResponse;
 import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
 import com.webapp.bankingportal.service.AccountService;
+import com.webapp.bankingportal.service.BalanceAuditService;
 import com.webapp.bankingportal.service.TransactionService;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
@@ -24,6 +29,7 @@ public class AccountController {
 
     private final AccountService accountService;
     private final TransactionService transactionService;
+    private final BalanceAuditService balanceAuditService;
 
     @GetMapping("/pin/check")
     public ResponseEntity<String> checkAccountPIN() {
@@ -97,6 +103,17 @@ public class AccountController {
                 .getAllTransactionsByAccountNumber(LoggedinUser.getAccountNumber());
         return ResponseEntity.ok(JsonUtil.toJson(transactions));
     }
+
+    @GetMapping("/audit-trail")
+    public ResponseEntity<BalanceAuditTrailResponse> getBalanceAuditTrail(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(balanceAuditService.getAuditTrail(
+                LoggedinUser.getAccountNumber(), from, to, page, size));
+    }
+
     @GetMapping("/send-statement")
     public ResponseEntity<String> sendBankStatement() {
         String accountNumber = LoggedinUser.getAccountNumber(); // Get logged-in user account
