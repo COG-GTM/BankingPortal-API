@@ -101,6 +101,7 @@ public class UserServiceImpl implements UserService {
         try {
             user.setPassword(passwordEncoder.encode(newPassword));
             userRepository.save(user);
+            tokenService.invalidateAllTokens(user.getAccount().getAccountNumber());
             return true;
         } catch (Exception e) {
             throw new PasswordResetException(ApiMessages.PASSWORD_RESET_FAILURE.getMessage(), e);
@@ -109,13 +110,27 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ModelAndView logout(String token) throws InvalidTokenException {
-        token = token.substring(7);
+        token = stripBearerPrefix(token);
         tokenService.validateToken(token);
+        val accountNumber = tokenService.getUsernameFromToken(token);
         tokenService.invalidateToken(token);
 
-        log.info("User logged out successfully {}", tokenService.getUsernameFromToken(token));
+        log.info("User logged out successfully {}", accountNumber);
 
         return new ModelAndView("redirect:/logout");
+    }
+
+    @Override
+    public ResponseEntity<String> refreshToken(String token) throws InvalidTokenException {
+        val newToken = tokenService.refreshToken(stripBearerPrefix(token));
+        return ResponseEntity.ok(String.format(ApiMessages.TOKEN_ISSUED_SUCCESS.getMessage(), newToken));
+    }
+
+    private static String stripBearerPrefix(String authorizationHeader) throws InvalidTokenException {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new InvalidTokenException(ApiMessages.TOKEN_INVALID_ERROR.getMessage());
+        }
+        return authorizationHeader.substring(7);
     }
 
     @Override

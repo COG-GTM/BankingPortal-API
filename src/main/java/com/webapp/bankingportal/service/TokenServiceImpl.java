@@ -2,9 +2,9 @@ package com.webapp.bankingportal.service;
 
 import static org.springframework.security.core.userdetails.User.withUsername;
 
-import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 import java.util.function.Function;
 
 import io.jsonwebtoken.*;
@@ -59,12 +59,15 @@ public class TokenServiceImpl implements TokenService {
         log.info("Generating token for user: " + userDetails.getUsername());
         return doGenerateToken(userDetails, expiry);
     }
+
     private Key key() {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
+
     private String doGenerateToken(UserDetails userDetails, Date expiry) {
         return Jwts.builder().setSubject(userDetails.getUsername())
+                .setId(UUID.randomUUID().toString())
                 .setIssuedAt(new Date())
                 .setExpiration(expiry)
                 .signWith(key(), SignatureAlgorithm.HS512).compact();
@@ -91,22 +94,15 @@ public class TokenServiceImpl implements TokenService {
         val claims = getAllClaimsFromToken(token);
         return claimsResolver.apply(claims);
     }
-    private JwtParser parser() {
-        return Jwts.parserBuilder()
-                .setSigningKey(key())
-                .build();
-    }
+
     private Claims getAllClaimsFromToken(String token) throws InvalidTokenException {
         try {
-           // return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
             return Jwts.parserBuilder()
                     .setSigningKey(key())
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-          //  return parser().parseClaimsJws(token).getBody();
         } catch (ExpiredJwtException e) {
-            // Delete expired token
             invalidateToken(token);
 
             throw new InvalidTokenException(ApiMessages.TOKEN_EXPIRED_ERROR.getMessage());
@@ -144,19 +140,52 @@ public class TokenServiceImpl implements TokenService {
         tokenRepository.save(tokenObj);
     }
 
+    /**
+     * A token is valid only if its signature and expiry check out, it has not
+     * been revoked (i.e. it is still persisted), and the persisted record
+     * belongs to the token's subject and has not passed its stored expiry.
+     */
     @Override
     public void validateToken(String token) throws InvalidTokenException {
-        if (tokenRepository.findByToken(token) == null) {
+        val claims = getAllClaimsFromToken(token);
+
+        val storedToken = tokenRepository.findByToken(token);
+        if (storedToken == null) {
             throw new InvalidTokenException(ApiMessages.TOKEN_NOT_FOUND_ERROR.getMessage());
+        }
+
+        if (!storedToken.getAccount().getAccountNumber().equals(claims.getSubject())) {
+            throw new InvalidTokenException(ApiMessages.TOKEN_INVALID_ERROR.getMessage());
+        }
+
+        if (storedToken.getExpiryAt().before(new Date())) {
+            invalidateToken(token);
+            throw new InvalidTokenException(ApiMessages.TOKEN_EXPIRED_ERROR.getMessage());
         }
     }
 
     @Override
-    @Transactional
     public void invalidateToken(String token) {
-        if (tokenRepository.findByToken(token) != null) {
-            tokenRepository.deleteByToken(token);
-        }
+        tokenRepository.deleteByToken(token);
+    }
+
+    @Override
+    public void invalidateAllTokens(String accountNumber) {
+        val revoked = tokenRepository.deleteAllByAccountNumber(accountNumber);
+        log.info("Revoked {} token(s) for account: {}", revoked, accountNumber);
+    }
+
+    @Override
+    @Transactional(rollbackFor = InvalidTokenException.class)
+    public String refreshToken(String token) throws InvalidTokenException {
+        validateToken(token);
+
+        val userDetails = loadUserByUsername(getUsernameFromToken(token));
+        val newToken = generateToken(userDetails);
+        saveToken(newToken);
+        invalidateToken(token);
+
+        return newToken;
     }
 
 }

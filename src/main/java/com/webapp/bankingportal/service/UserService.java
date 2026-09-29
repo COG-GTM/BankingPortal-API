@@ -27,6 +27,8 @@ public interface UserService {
 
     public ModelAndView logout(String token) throws InvalidTokenException;
 
+    public ResponseEntity<String> refreshToken(String token) throws InvalidTokenException;
+
     public boolean resetPassword(User user, String newPassword);
 
     public User saveUser(User user);

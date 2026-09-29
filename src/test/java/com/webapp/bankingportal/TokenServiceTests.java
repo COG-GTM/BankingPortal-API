@@ -2,6 +2,8 @@ package com.webapp.bankingportal;
 
 import java.util.Date;
 
+import static org.springframework.security.core.userdetails.User.withUsername;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -134,6 +136,96 @@ public class TokenServiceTests extends BaseTest {
         Assertions.assertThrows(InvalidTokenException.class,
                 () -> tokenService.getUsernameFromToken(null),
                 ApiMessages.TOKEN_EMPTY_ERROR.getMessage());
+    }
+
+    @Test
+    public void test_generate_token_twice_yields_distinct_tokens() {
+        val userDetails = withUsername(getRandomAccountNumber()).password(getRandomPassword()).build();
+        val expiry = new Date(System.currentTimeMillis() + 60_000);
+
+        Assertions.assertNotEquals(
+                tokenService.generateToken(userDetails, expiry),
+                tokenService.generateToken(userDetails, expiry));
+    }
+
+    @Test
+    public void test_validate_token_with_tampered_signature() throws Exception {
+        val token = createAndLoginUser().get("token");
+        val index = token.lastIndexOf('.') + 10;
+        val replacement = token.charAt(index) == 'A' ? 'B' : 'A';
+        val tampered = token.substring(0, index) + replacement + token.substring(index + 1);
+
+        val exception = Assertions.assertThrows(InvalidTokenException.class,
+                () -> tokenService.validateToken(tampered));
+        Assertions.assertEquals(ApiMessages.TOKEN_SIGNATURE_INVALID_ERROR.getMessage(), exception.getMessage());
+    }
+
+    @Test
+    public void test_validate_token_with_persisted_expired_token() throws Exception {
+        val accountDetails = createAccount();
+        val token = generateToken(
+                accountDetails.get("accountNumber"),
+                accountDetails.get("password"),
+                new Date(System.currentTimeMillis() + 1000));
+        tokenService.saveToken(token);
+        Assertions.assertNotNull(tokenRepository.findByToken(token));
+
+        Thread.sleep(2000);
+
+        val exception = Assertions.assertThrows(InvalidTokenException.class,
+                () -> tokenService.validateToken(token));
+        Assertions.assertEquals(ApiMessages.TOKEN_EXPIRED_ERROR.getMessage(), exception.getMessage());
+        Assertions.assertNull(tokenRepository.findByToken(token));
+    }
+
+    @Test
+    public void test_validate_token_after_invalidate() throws Exception {
+        val token = createAndLoginUser().get("token");
+        tokenService.invalidateToken(token);
+
+        val exception = Assertions.assertThrows(InvalidTokenException.class,
+                () -> tokenService.validateToken(token));
+        Assertions.assertEquals(ApiMessages.TOKEN_NOT_FOUND_ERROR.getMessage(), exception.getMessage());
+    }
+
+    @Test
+    public void test_invalidate_all_tokens_revokes_every_session() throws Exception {
+        val accountDetails = createAccount();
+        val accountNumber = accountDetails.get("accountNumber");
+        val first = generateToken(accountNumber, accountDetails.get("password"));
+        val second = generateToken(accountNumber, accountDetails.get("password"));
+        tokenService.saveToken(first);
+        tokenService.saveToken(second);
+
+        val otherToken = createAndLoginUser().get("token");
+
+        tokenService.invalidateAllTokens(accountNumber);
+
+        Assertions.assertNull(tokenRepository.findByToken(first));
+        Assertions.assertNull(tokenRepository.findByToken(second));
+        Assertions.assertNotNull(tokenRepository.findByToken(otherToken));
+    }
+
+    @Test
+    public void test_refresh_token_rotates_token() throws Exception {
+        val userDetails = createAndLoginUser();
+        val oldToken = userDetails.get("token");
+
+        val newToken = tokenService.refreshToken(oldToken);
+
+        Assertions.assertNotEquals(oldToken, newToken);
+        Assertions.assertEquals(userDetails.get("accountNumber"), tokenService.getUsernameFromToken(newToken));
+        tokenService.validateToken(newToken);
+        Assertions.assertNull(tokenRepository.findByToken(oldToken));
+    }
+
+    @Test
+    public void test_refresh_token_with_revoked_token() throws Exception {
+        val token = createAndLoginUser().get("token");
+        tokenService.invalidateToken(token);
+
+        Assertions.assertThrows(InvalidTokenException.class,
+                () -> tokenService.refreshToken(token));
     }
 
 }

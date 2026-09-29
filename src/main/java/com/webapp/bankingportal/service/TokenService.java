@@ -28,4 +28,8 @@ public interface TokenService extends UserDetailsService {
     public void validateToken(String token) throws InvalidTokenException;
 
     public void invalidateToken(String token);
+
+    public void invalidateAllTokens(String accountNumber);
+
+    public String refreshToken(String token) throws InvalidTokenException;
 }

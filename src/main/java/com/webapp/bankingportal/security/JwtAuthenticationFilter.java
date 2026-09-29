@@ -5,7 +5,9 @@ import java.io.IOException;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -74,19 +76,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         val token = requestTokenHeader.substring(7);
-        String username = null;
+        UserDetails userDetails;
 
         try {
             tokenService.validateToken(token);
-            username = tokenService.getUsernameFromToken(token);
+            val username = tokenService.getUsernameFromToken(token);
+            userDetails = userDetailsService.loadUserByUsername(username);
 
-        } catch (InvalidTokenException e) {
+        } catch (InvalidTokenException | UsernameNotFoundException e) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED,
                     e.getMessage());
             return;
         }
 
-        val userDetails = userDetailsService.loadUserByUsername(username);
         val authToken = new UsernamePasswordAuthenticationToken(
                 userDetails, null, userDetails.getAuthorities());
 

@@ -68,6 +68,13 @@ public class UserController {
         return userService.updateUser(user);
     }
 
+    @PostMapping("/refresh-token")
+    public ResponseEntity<String> refreshToken(@RequestHeader("Authorization") String token)
+            throws InvalidTokenException {
+
+        return userService.refreshToken(token);
+    }
+
     @GetMapping("/logout")
     public ModelAndView logout(@RequestHeader("Authorization") String token)
             throws InvalidTokenException {
