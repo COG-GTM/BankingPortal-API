@@ -1,5 +1,7 @@
 package com.webapp.bankingportal.controller;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -9,7 +11,9 @@ import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
 import com.webapp.bankingportal.service.AccountService;
+import com.webapp.bankingportal.service.StatementService;
 import com.webapp.bankingportal.service.TransactionService;
+import com.webapp.bankingportal.type.StatementFormat;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
 import com.webapp.bankingportal.util.LoggedinUser;
@@ -24,6 +28,7 @@ public class AccountController {
 
     private final AccountService accountService;
     private final TransactionService transactionService;
+    private final StatementService statementService;
 
     @GetMapping("/pin/check")
     public ResponseEntity<String> checkAccountPIN() {
@@ -102,6 +107,30 @@ public class AccountController {
         String accountNumber = LoggedinUser.getAccountNumber(); // Get logged-in user account
         transactionService.sendBankStatementByEmail(accountNumber);
         return ResponseEntity.ok("{\"message\": \"Bank statement sent to your email.\"}");
+    }
+
+    /**
+     * Returns the logged-in account's statement for a calendar month.
+     *
+     * @param month  statement month as {@code yyyy-MM}; defaults to the previous month
+     * @param format {@code csv} (default) or {@code pdf}
+     */
+    @GetMapping("/statement")
+    public ResponseEntity<byte[]> getMonthlyStatement(
+            @RequestParam(required = false) String month,
+            @RequestParam(defaultValue = "csv") String format) {
+        val accountNumber = LoggedinUser.getAccountNumber();
+        val statementFormat = StatementFormat.fromValue(format);
+        val statementMonth = statementService.parseMonth(month);
+        val content = statementService.generateMonthlyStatement(accountNumber, statementMonth, statementFormat);
+        val filename = String.format("statement-%s-%s.%s",
+                accountNumber, statementMonth, statementFormat.getFileExtension());
+
+        return ResponseEntity.ok()
+                .contentType(statementFormat.getMediaType())
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(filename).build().toString())
+                .body(content);
     }
 
 }
