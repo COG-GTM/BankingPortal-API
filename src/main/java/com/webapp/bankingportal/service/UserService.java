@@ -3,6 +3,7 @@ package com.webapp.bankingportal.service;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.ModelAndView;
 
+import com.webapp.bankingportal.dto.ChangePasswordRequest;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
@@ -28,6 +29,12 @@ public interface UserService {
     public ModelAndView logout(String token) throws InvalidTokenException;
 
     public boolean resetPassword(User user, String newPassword);
+
+    public void validateNewPassword(User user, String newPassword);
+
+    public ResponseEntity<String> changePassword(ChangePasswordRequest changePasswordRequest);
+
+    public ResponseEntity<String> getCredentialStatus();
 
     public User saveUser(User user);
 

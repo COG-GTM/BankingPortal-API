@@ -1,6 +1,8 @@
 package com.webapp.bankingportal.service;
 
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.http.ResponseEntity;
@@ -12,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.ModelAndView;
 
+import com.webapp.bankingportal.dto.ChangePasswordRequest;
+import com.webapp.bankingportal.dto.CredentialStatusResponse;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
@@ -22,7 +26,9 @@ import com.webapp.bankingportal.exception.PasswordResetException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
 import com.webapp.bankingportal.exception.UserInvalidException;
 import com.webapp.bankingportal.mapper.UserMapper;
+import com.webapp.bankingportal.repository.TokenRepository;
 import com.webapp.bankingportal.repository.UserRepository;
+import com.webapp.bankingportal.security.CredentialPolicy;
 import com.webapp.bankingportal.util.JsonUtil;
 import com.webapp.bankingportal.util.LoggedinUser;
 import com.webapp.bankingportal.util.ValidationUtil;
@@ -41,10 +47,12 @@ public class UserServiceImpl implements UserService {
 
     private final AccountService accountService;
     private final AuthenticationManager authenticationManager;
+    private final CredentialPolicy credentialPolicy;
     private final EmailService emailService;
     private final GeolocationService geolocationService;
     private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
+    private final TokenRepository tokenRepository;
     private final TokenService tokenService;
     private final UserDetailsService userDetailsService;
     private final UserMapper userMapper;
@@ -54,7 +62,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public ResponseEntity<String> registerUser(User user) {
         validationUtil.validateNewUser(user);
+        credentialPolicy.validatePassword(user.getPassword(), user);
         encodePassword(user);
+        user.setPasswordChangedAt(LocalDateTime.now());
         val savedUser = saveUserWithAccount(user);
         return ResponseEntity.ok(JsonUtil.toJson(new UserResponse(savedUser)));
     }
@@ -100,11 +110,51 @@ public class UserServiceImpl implements UserService {
     public boolean resetPassword(User user, String newPassword) {
         try {
             user.setPassword(passwordEncoder.encode(newPassword));
+            user.setPasswordChangedAt(LocalDateTime.now());
             userRepository.save(user);
+            revokeAllTokens(user);
             return true;
         } catch (Exception e) {
             throw new PasswordResetException(ApiMessages.PASSWORD_RESET_FAILURE.getMessage(), e);
         }
+    }
+
+    @Override
+    public void validateNewPassword(User user, String newPassword) {
+        credentialPolicy.validatePassword(newPassword, user);
+
+        if (user.getPassword() != null && passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new UserInvalidException(ApiMessages.PASSWORD_REUSE_ERROR.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<String> changePassword(ChangePasswordRequest changePasswordRequest) {
+        val accountNumber = LoggedinUser.getAccountNumber();
+        authenticateUser(accountNumber, changePasswordRequest.currentPassword());
+
+        val user = getUserByAccountNumber(accountNumber);
+        validateNewPassword(user, changePasswordRequest.newPassword());
+        resetPassword(user, changePasswordRequest.newPassword());
+
+        return ResponseEntity.ok(ApiMessages.PASSWORD_CHANGE_SUCCESS.getMessage());
+    }
+
+    @Override
+    public ResponseEntity<String> getCredentialStatus() {
+        val user = getUserByAccountNumber(LoggedinUser.getAccountNumber());
+        val account = user.getAccount();
+        val pinCreated = account.getPin() != null;
+
+        val status = new CredentialStatusResponse(
+                toIsoString(user.getPasswordChangedAt()),
+                credentialPolicy.isRotationDue(user.getPasswordChangedAt(), false),
+                pinCreated,
+                toIsoString(account.getPinChangedAt()),
+                pinCreated && credentialPolicy.isRotationDue(account.getPinChangedAt(), true));
+
+        return ResponseEntity.ok(JsonUtil.toJson(status));
     }
 
     @Override
@@ -150,6 +200,21 @@ public class UserServiceImpl implements UserService {
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email).orElseThrow(
                 () -> new UserInvalidException(String.format(ApiMessages.USER_NOT_FOUND_BY_EMAIL.getMessage(), email)));
+    }
+
+    private void revokeAllTokens(User user) {
+        val account = user.getAccount();
+        if (account == null) {
+            return;
+        }
+
+        val tokens = List.of(tokenRepository.findAllByAccount(account));
+        account.getTokens().removeAll(tokens);
+        tokenRepository.deleteAll(tokens);
+    }
+
+    private static String toIsoString(LocalDateTime dateTime) {
+        return dateTime == null ? null : dateTime.toString();
     }
 
     private void encodePassword(User user) {

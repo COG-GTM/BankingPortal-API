@@ -29,6 +29,18 @@
             "name": "geo.api.key",
             "type": "java.lang.String",
             "description": "Geolocation API key"
+        },
+        {
+            "name": "banking.credentials.password-max-age-days",
+            "type": "java.lang.Long",
+            "defaultValue": 90,
+            "description": "Days after which a password is reported as due for rotation"
+        },
+        {
+            "name": "banking.credentials.pin-max-age-days",
+            "type": "java.lang.Long",
+            "defaultValue": 180,
+            "description": "Days after which a PIN is reported as due for rotation"
         }
     ]
 }

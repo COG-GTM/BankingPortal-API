@@ -1,5 +1,6 @@
 package com.webapp.bankingportal.entity;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,6 +37,7 @@ public class Account {
     private String branch = "NIT";
     private String ifscCode = "NIT001";
     private String Pin;
+    private LocalDateTime pinChangedAt;
 
     @NotNull
     @OneToOne

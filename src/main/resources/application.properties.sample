@@ -30,3 +30,7 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 # Geolocation API
 geo.api.url=https://api.findip.net/
 geo.api.key=your-api-key
+
+# Credential rotation (see docs/credential-policy.md)
+banking.credentials.password-max-age-days=90
+banking.credentials.pin-max-age-days=180

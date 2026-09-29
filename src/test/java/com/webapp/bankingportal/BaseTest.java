@@ -28,6 +28,7 @@ import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.PinRequest;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.repository.UserRepository;
+import com.webapp.bankingportal.security.CredentialPolicy;
 import com.webapp.bankingportal.service.AccountService;
 import com.webapp.bankingportal.service.TokenService;
 import com.webapp.bankingportal.util.ApiMessages;
@@ -104,7 +105,11 @@ public abstract class BaseTest {
     }
 
     protected static String getRandomPin() {
-        return faker.number().digits(4);
+        String pin;
+        do {
+            pin = faker.number().digits(4);
+        } while (CredentialPolicy.isWeakPin(pin));
+        return pin;
     }
 
     protected String generateToken(String username, String password) {

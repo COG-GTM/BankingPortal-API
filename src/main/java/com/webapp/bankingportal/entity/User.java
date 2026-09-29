@@ -1,6 +1,9 @@
 package com.webapp.bankingportal.entity;
 
+import java.time.LocalDateTime;
+
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -45,6 +48,9 @@ public class User {
 
     @NotEmpty
     private String address;
+
+    @JsonIgnore
+    private LocalDateTime passwordChangedAt;
 
     // Establishing a one-to-one relationship with the account
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)

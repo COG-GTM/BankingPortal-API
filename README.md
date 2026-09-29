@@ -23,6 +23,7 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 
 - User Registration: Users can register by providing their details, such as name, email, address, and phone number.
 - PIN Management: Users can create and update their PINs for added security.
+- Credential Policy: Password/PIN strength rules, an offline breach-list check, and a documented rotation flow. See [docs/credential-policy.md](docs/credential-policy.md).
 - Cash Deposit and Withdrawal: Users can deposit and withdraw cash from their accounts.
 - Fund Transfer: Users can transfer funds to other accounts within the system.
 - Transaction History: Users can view their transaction history.

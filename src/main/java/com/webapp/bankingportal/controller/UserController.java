@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.ModelAndView;
 
+import com.webapp.bankingportal.dto.ChangePasswordRequest;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
@@ -66,6 +67,16 @@ public class UserController {
     @PostMapping("/update")
     public ResponseEntity<String> updateUser(@RequestBody User user) {
         return userService.updateUser(user);
+    }
+
+    @PostMapping("/password/change")
+    public ResponseEntity<String> changePassword(@RequestBody ChangePasswordRequest changePasswordRequest) {
+        return userService.changePassword(changePasswordRequest);
+    }
+
+    @GetMapping("/credentials/status")
+    public ResponseEntity<String> getCredentialStatus() {
+        return userService.getCredentialStatus();
     }
 
     @GetMapping("/logout")

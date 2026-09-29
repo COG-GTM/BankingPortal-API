@@ -1,0 +1,23 @@
+# Offline blocklist of the most commonly chosen 4-digit PINs.
+# Structural rules (repeated digits, ascending/descending runs, ABAB patterns,
+# 19xx/20xx years) are enforced in code; this list covers the remaining popular picks.
+1004
+1122
+1313
+1342
+1998
+2020
+2580
+0852
+1470
+0369
+7410
+9630
+1357
+2468
+8520
+0258
+1236
+1590
+5683
+3698

@@ -1,5 +1,6 @@
 package com.webapp.bankingportal.service;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.UUID;
 
@@ -19,6 +20,7 @@ import com.webapp.bankingportal.exception.NotFoundException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
 import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.repository.TransactionRepository;
+import com.webapp.bankingportal.security.CredentialPolicy;
 import com.webapp.bankingportal.util.ApiMessages;
 
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+    private final CredentialPolicy credentialPolicy;
 
     @Override
     public Account createAccount(User user) {
@@ -109,15 +112,10 @@ public class AccountServiceImpl implements AccountService {
             throw new UnauthorizedException(ApiMessages.PIN_ALREADY_EXISTS.getMessage());
         }
 
-        if (pin == null || pin.isEmpty()) {
-            throw new InvalidPinException(ApiMessages.PIN_EMPTY_ERROR.getMessage());
-        }
-
-        if (!pin.matches("[0-9]{4}")) {
-            throw new InvalidPinException(ApiMessages.PIN_FORMAT_INVALID_ERROR.getMessage());
-        }
+        credentialPolicy.validatePin(pin, account.getUser());
 
         account.setPin(passwordEncoder.encode(pin));
+        account.setPinChangedAt(LocalDateTime.now());
         accountRepository.save(account);
     }
 
@@ -130,15 +128,14 @@ public class AccountServiceImpl implements AccountService {
 
         val account = accountRepository.findByAccountNumber(accountNumber);
 
-        if (newPin == null || newPin.isEmpty()) {
-            throw new InvalidPinException(ApiMessages.PIN_EMPTY_ERROR.getMessage());
-        }
+        credentialPolicy.validatePin(newPin, account.getUser());
 
-        if (!newPin.matches("[0-9]{4}")) {
-            throw new InvalidPinException(ApiMessages.PIN_FORMAT_INVALID_ERROR.getMessage());
+        if (newPin.equals(oldPin)) {
+            throw new InvalidPinException(ApiMessages.PIN_REUSE_ERROR.getMessage());
         }
 
         account.setPin(passwordEncoder.encode(newPin));
+        account.setPinChangedAt(LocalDateTime.now());
         accountRepository.save(account);
     }
 
