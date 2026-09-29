@@ -13,6 +13,7 @@ public class AccountResponse {
 
     private String accountNumber;
     private double balance;
+    private String currency;
     private String accountType;
     private String branch;
     private String ifscCode;
@@ -20,6 +21,7 @@ public class AccountResponse {
     public AccountResponse(Account account) {
         this.accountNumber = account.getAccountNumber();
         this.balance = account.getBalance();
+        this.currency = account.getCurrency();
         this.accountType = account.getAccountType();
         this.branch = account.getBranch();
         this.ifscCode = account.getIfscCode();

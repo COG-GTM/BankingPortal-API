@@ -10,6 +10,7 @@ import org.springframework.web.context.request.WebRequest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.webapp.bankingportal.exception.AccountDoesNotExistException;
+import com.webapp.bankingportal.exception.ExchangeRateUnavailableException;
 import com.webapp.bankingportal.exception.FundTransferException;
 import com.webapp.bankingportal.exception.GeolocationException;
 import com.webapp.bankingportal.exception.InsufficientBalanceException;
@@ -38,6 +39,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<String> handleBadCredentialsException(BadCredentialsException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(ExchangeRateUnavailableException.class)
+    public ResponseEntity<String> handleExchangeRateUnavailableException(ExchangeRateUnavailableException ex) {
+        return ResponseEntity.badRequest().body(ex.getMessage());
     }
 
     @ExceptionHandler(FundTransferException.class)

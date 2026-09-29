@@ -29,6 +29,12 @@
             "name": "geo.api.key",
             "type": "java.lang.String",
             "description": "Geolocation API key"
+        },
+        {
+            "name": "exchange.provider",
+            "type": "java.lang.String",
+            "description": "Exchange-rate provider implementation to use for cross-currency transfers.",
+            "defaultValue": "stub"
         }
     ]
 }

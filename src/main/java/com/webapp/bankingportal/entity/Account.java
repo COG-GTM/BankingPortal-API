@@ -14,11 +14,16 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+
+import org.hibernate.annotations.ColumnDefault;
+
 import lombok.Data;
 
 @Entity
 @Data
 public class Account {
+
+    public static final String DEFAULT_CURRENCY = "USD";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,6 +38,12 @@ public class Account {
 
     private String accountStatus;
     private double balance;
+
+    @NotEmpty
+    @Column(length = 3, nullable = false)
+    @ColumnDefault("'USD'")
+    private String currency = DEFAULT_CURRENCY;
+
     private String branch = "NIT";
     private String ifscCode = "NIT001";
     private String Pin;

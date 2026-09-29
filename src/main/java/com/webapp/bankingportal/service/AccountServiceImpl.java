@@ -1,5 +1,7 @@
 package com.webapp.bankingportal.service;
 
+import java.math.BigDecimal;
+import java.util.Currency;
 import java.util.Date;
 import java.util.UUID;
 
@@ -17,6 +19,7 @@ import com.webapp.bankingportal.exception.InvalidAmountException;
 import com.webapp.bankingportal.exception.InvalidPinException;
 import com.webapp.bankingportal.exception.NotFoundException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
+import com.webapp.bankingportal.exchange.CurrencyConversionService;
 import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.repository.TransactionRepository;
 import com.webapp.bankingportal.util.ApiMessages;
@@ -36,14 +39,35 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+    @Autowired
+    private final CurrencyConversionService currencyConversionService;
 
     @Override
     public Account createAccount(User user) {
+        return createAccount(user, Account.DEFAULT_CURRENCY);
+    }
+
+    @Override
+    public Account createAccount(User user, String currency) {
         val account = new Account();
         account.setAccountNumber(generateUniqueAccountNumber());
         account.setBalance(0.0);
+        account.setCurrency(toCurrency(currency).getCurrencyCode());
         account.setUser(user);
         return accountRepository.save(account);
+    }
+
+    private static Currency toCurrency(String currencyCode) {
+        if (currencyCode == null) {
+            return Currency.getInstance(Account.DEFAULT_CURRENCY);
+        }
+
+        try {
+            return Currency.getInstance(currencyCode.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    String.format(ApiMessages.CURRENCY_INVALID_ERROR.getMessage(), currencyCode), e);
+        }
     }
 
     @Override
@@ -170,6 +194,7 @@ public class AccountServiceImpl implements AccountService {
 
         val transaction = new Transaction();
         transaction.setAmount(amount);
+        transaction.setSourceCurrency(toCurrency(account.getCurrency()).getCurrencyCode());
         transaction.setTransactionType(TransactionType.CASH_DEPOSIT);
         transaction.setTransactionDate(new Date());
         transaction.setSourceAccount(account);
@@ -194,6 +219,7 @@ public class AccountServiceImpl implements AccountService {
 
         val transaction = new Transaction();
         transaction.setAmount(amount);
+        transaction.setSourceCurrency(toCurrency(account.getCurrency()).getCurrencyCode());
         transaction.setTransactionType(TransactionType.CASH_WITHDRAWAL);
         transaction.setTransactionDate(new Date());
         transaction.setSourceAccount(account);
@@ -221,17 +247,27 @@ public class AccountServiceImpl implements AccountService {
             throw new InsufficientBalanceException(ApiMessages.BALANCE_INSUFFICIENT_ERROR.getMessage());
         }
 
+        val conversion = currencyConversionService.convert(
+                BigDecimal.valueOf(amount),
+                toCurrency(sourceAccount.getCurrency()),
+                toCurrency(targetAccount.getCurrency()));
+        val creditedAmount = conversion.targetAmount().doubleValue();
+
         val newSourceBalance = sourceBalance - amount;
         sourceAccount.setBalance(newSourceBalance);
         accountRepository.save(sourceAccount);
 
         val targetBalance = targetAccount.getBalance();
-        val newTargetBalance = targetBalance + amount;
+        val newTargetBalance = targetBalance + creditedAmount;
         targetAccount.setBalance(newTargetBalance);
         accountRepository.save(targetAccount);
 
         val transaction = new Transaction();
         transaction.setAmount(amount);
+        transaction.setSourceCurrency(conversion.sourceCurrency().getCurrencyCode());
+        transaction.setTargetAmount(creditedAmount);
+        transaction.setTargetCurrency(conversion.targetCurrency().getCurrencyCode());
+        transaction.setExchangeRate(conversion.exchangeRate());
         transaction.setTransactionType(TransactionType.CASH_TRANSFER);
         transaction.setTransactionDate(new Date());
         transaction.setSourceAccount(sourceAccount);

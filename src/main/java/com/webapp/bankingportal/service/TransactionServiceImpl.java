@@ -46,8 +46,15 @@ public class TransactionServiceImpl implements TransactionService {
         for(TransactionDTO txn : transactions) {
             sb.append("Date: ").append(txn.getTransactionDate())
                     .append(", Type: ").append(txn.getTransactionType())
-                    .append(", Amount: ").append(txn.getAmount())
-                    .append("\n");
+                    .append(", Amount: ").append(txn.getAmount());
+            if (txn.getSourceCurrency() != null) {
+                sb.append(" ").append(txn.getSourceCurrency());
+            }
+            if (txn.getTargetCurrency() != null && !txn.getTargetCurrency().equals(txn.getSourceCurrency())) {
+                sb.append(" (credited ").append(txn.getTargetAmount()).append(" ").append(txn.getTargetCurrency())
+                        .append(" @ ").append(txn.getExchangeRate()).append(")");
+            }
+            sb.append("\n");
         }
 
         val account = accountRepository.findByAccountNumber(accountNumber);

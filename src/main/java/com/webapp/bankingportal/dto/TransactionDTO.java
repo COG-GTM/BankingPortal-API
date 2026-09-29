@@ -1,5 +1,6 @@
 package com.webapp.bankingportal.dto;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 import com.webapp.bankingportal.entity.Transaction;
@@ -17,6 +18,10 @@ public class TransactionDTO {
 
     private Long id;
     private double amount;
+    private String sourceCurrency;
+    private Double targetAmount;
+    private String targetCurrency;
+    private BigDecimal exchangeRate;
     private TransactionType transactionType;
     private Date transactionDate;
     private String sourceAccountNumber;
@@ -25,6 +30,10 @@ public class TransactionDTO {
     public TransactionDTO(Transaction transaction) {
         this.id = transaction.getId();
         this.amount = transaction.getAmount();
+        this.sourceCurrency = transaction.getSourceCurrency();
+        this.targetAmount = transaction.getTargetAmount();
+        this.targetCurrency = transaction.getTargetCurrency();
+        this.exchangeRate = transaction.getExchangeRate();
         this.transactionType = transaction.getTransactionType();
         this.transactionDate = transaction.getTransactionDate();
         this.sourceAccountNumber = transaction.getSourceAccount().getAccountNumber();
