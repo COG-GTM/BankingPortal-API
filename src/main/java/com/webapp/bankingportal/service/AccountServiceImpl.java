@@ -20,11 +20,11 @@ import com.webapp.bankingportal.exception.UnauthorizedException;
 import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.repository.TransactionRepository;
 import com.webapp.bankingportal.util.ApiMessages;
+import com.webapp.bankingportal.util.OptimisticLockRetryExecutor;
 
 import lombok.RequiredArgsConstructor;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -36,6 +36,7 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+    private final OptimisticLockRetryExecutor optimisticLockRetryExecutor;
 
     @Override
     public Account createAccount(User user) {
@@ -102,6 +103,10 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public void createPin(String accountNumber, String password, String pin) {
+        optimisticLockRetryExecutor.execute(() -> doCreatePin(accountNumber, password, pin));
+    }
+
+    private void doCreatePin(String accountNumber, String password, String pin) {
         validatePassword(accountNumber, password);
 
         val account = accountRepository.findByAccountNumber(accountNumber);
@@ -123,6 +128,10 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public void updatePin(String accountNumber, String oldPin, String password, String newPin) {
+        optimisticLockRetryExecutor.execute(() -> doUpdatePin(accountNumber, oldPin, password, newPin));
+    }
+
+    private void doUpdatePin(String accountNumber, String oldPin, String password, String newPin) {
         log.info("Updating PIN for account: {}", accountNumber);
 
         validatePassword(accountNumber, password);
@@ -156,9 +165,12 @@ public class AccountServiceImpl implements AccountService {
         }
     }
 
-    @Transactional
     @Override
     public void cashDeposit(String accountNumber, String pin, double amount) {
+        optimisticLockRetryExecutor.execute(() -> doCashDeposit(accountNumber, pin, amount));
+    }
+
+    private void doCashDeposit(String accountNumber, String pin, double amount) {
         validatePin(accountNumber, pin);
         validateAmount(amount);
 
@@ -176,9 +188,12 @@ public class AccountServiceImpl implements AccountService {
         transactionRepository.save(transaction);
     }
 
-    @Transactional
     @Override
     public void cashWithdrawal(String accountNumber, String pin, double amount) {
+        optimisticLockRetryExecutor.execute(() -> doCashWithdrawal(accountNumber, pin, amount));
+    }
+
+    private void doCashWithdrawal(String accountNumber, String pin, double amount) {
         validatePin(accountNumber, pin);
         validateAmount(amount);
 
@@ -200,9 +215,12 @@ public class AccountServiceImpl implements AccountService {
         transactionRepository.save(transaction);
     }
 
-    @Transactional
     @Override
     public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
+        optimisticLockRetryExecutor.execute(() -> doFundTransfer(sourceAccountNumber, targetAccountNumber, pin, amount));
+    }
+
+    private void doFundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
         validatePin(sourceAccountNumber, pin);
         validateAmount(amount);
 

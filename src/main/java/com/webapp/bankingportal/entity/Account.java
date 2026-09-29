@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -36,6 +37,9 @@ public class Account {
     private String branch = "NIT";
     private String ifscCode = "NIT001";
     private String Pin;
+
+    @Version
+    private long version;
 
     @NotNull
     @OneToOne

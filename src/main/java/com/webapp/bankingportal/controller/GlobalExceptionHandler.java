@@ -10,6 +10,7 @@ import org.springframework.web.context.request.WebRequest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.webapp.bankingportal.exception.AccountDoesNotExistException;
+import com.webapp.bankingportal.exception.ConcurrentUpdateException;
 import com.webapp.bankingportal.exception.FundTransferException;
 import com.webapp.bankingportal.exception.GeolocationException;
 import com.webapp.bankingportal.exception.InsufficientBalanceException;
@@ -22,6 +23,7 @@ import com.webapp.bankingportal.exception.OtpRetryLimitExceededException;
 import com.webapp.bankingportal.exception.PasswordResetException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
 import com.webapp.bankingportal.exception.UserInvalidException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import java.util.Map;
 import com.webapp.bankingportal.util.ApiMessages;
@@ -122,6 +124,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RedisConnectionFailureException.class)
     public ResponseEntity<Map<String, String>> handleRedisConnectionFailure(RedisConnectionFailureException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("message", ApiMessages.REDIS_CONNECTION_FAILURE.getMessage()));
+    }
+
+    @ExceptionHandler({ ConcurrentUpdateException.class, OptimisticLockingFailureException.class })
+    public ResponseEntity<Map<String, String>> handleConcurrentUpdate(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", ApiMessages.ACCOUNT_CONCURRENT_UPDATE_ERROR.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
