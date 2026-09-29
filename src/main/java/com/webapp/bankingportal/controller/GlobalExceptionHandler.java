@@ -20,6 +20,7 @@ import com.webapp.bankingportal.exception.InvalidPinException;
 import com.webapp.bankingportal.exception.NotFoundException;
 import com.webapp.bankingportal.exception.OtpRetryLimitExceededException;
 import com.webapp.bankingportal.exception.PasswordResetException;
+import com.webapp.bankingportal.exception.ScheduledTransferException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
 import com.webapp.bankingportal.exception.UserInvalidException;
 import org.springframework.data.redis.RedisConnectionFailureException;
@@ -107,6 +108,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RestClientException.class)
     public ResponseEntity<String> handleRestClientException(RestClientException ex) {
         return ResponseEntity.internalServerError().body(ex.getMessage());
+    }
+
+    @ExceptionHandler(ScheduledTransferException.class)
+    public ResponseEntity<String> handleScheduledTransferException(ScheduledTransferException ex) {
+        return ResponseEntity.badRequest().body(ex.getMessage());
     }
 
     @ExceptionHandler(UnauthorizedException.class)

@@ -66,6 +66,11 @@ public class AccountServiceImpl implements AccountService {
         return accountNumber;
     }
 
+    @Override
+    public void verifyPin(String accountNumber, String pin) {
+        validatePin(accountNumber, pin);
+    }
+
     private void validatePin(String accountNumber, String pin) {
         val account = accountRepository.findByAccountNumber(accountNumber);
         if (account == null) {
@@ -142,7 +147,8 @@ public class AccountServiceImpl implements AccountService {
         accountRepository.save(account);
     }
 
-    private void validateAmount(double amount) {
+    @Override
+    public void validateAmount(double amount) {
         if (amount <= 0) {
             throw new InvalidAmountException(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage());
         }
@@ -204,6 +210,12 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
         validatePin(sourceAccountNumber, pin);
+        transferFunds(sourceAccountNumber, targetAccountNumber, amount);
+    }
+
+    @Transactional
+    @Override
+    public void transferFunds(String sourceAccountNumber, String targetAccountNumber, double amount) {
         validateAmount(amount);
 
         if (sourceAccountNumber.equals(targetAccountNumber)) {
@@ -216,6 +228,10 @@ public class AccountServiceImpl implements AccountService {
         }
 
         val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
+        if (sourceAccount == null) {
+            throw new NotFoundException(ApiMessages.ACCOUNT_NOT_FOUND.getMessage());
+        }
+
         val sourceBalance = sourceAccount.getBalance();
         if (sourceBalance < amount) {
             throw new InsufficientBalanceException(ApiMessages.BALANCE_INSUFFICIENT_ERROR.getMessage());

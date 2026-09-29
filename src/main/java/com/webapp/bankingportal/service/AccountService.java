@@ -12,6 +12,9 @@ public interface AccountService {
 	public void cashDeposit(String accountNumber, String pin, double amount);
 	public void cashWithdrawal(String accountNumber, String pin, double amount);
 	public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount);
+	public void transferFunds(String sourceAccountNumber, String targetAccountNumber, double amount);
+	public void verifyPin(String accountNumber, String pin);
+	public void validateAmount(double amount);
 	
 	
 }
