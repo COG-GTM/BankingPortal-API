@@ -2,6 +2,7 @@ package com.webapp.bankingportal.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -28,6 +29,11 @@ import com.webapp.bankingportal.util.ApiMessages;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<String> handleAccessDeniedException(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiMessages.ACCESS_DENIED.getMessage());
+    }
 
     @ExceptionHandler(AccountDoesNotExistException.class)
     public ResponseEntity<String> handleAccountDoesNotExistException(

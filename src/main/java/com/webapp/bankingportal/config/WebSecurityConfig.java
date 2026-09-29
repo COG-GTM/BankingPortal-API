@@ -16,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import com.webapp.bankingportal.entity.Role;
+import com.webapp.bankingportal.security.JwtAccessDeniedHandler;
 import com.webapp.bankingportal.security.JwtAuthenticationEntryPoint;
 import com.webapp.bankingportal.security.JwtAuthenticationFilter;
 import com.webapp.bankingportal.service.TokenService;
@@ -41,9 +43,21 @@ public class WebSecurityConfig {
             "swagger-ui.html",
             "/v3/api-docs/**",
             "/swagger-ui/**",
+            "/actuator/health"
+    };
+
+    private static final String[] CUSTOMER_URLS = {
+            "/api/account/**",
+            "/api/dashboard/**",
+            "/api/users/update"
+    };
+
+    private static final String[] ADMIN_URLS = {
+            "/api/admin/**",
             "/actuator/**"
     };
 
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final TokenService tokenService;
@@ -71,9 +85,12 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(ADMIN_URLS).hasRole(Role.ADMIN.name())
+                        .requestMatchers(CUSTOMER_URLS).hasRole(Role.CUSTOMER.name())
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> {
                     handling.authenticationEntryPoint(jwtAuthenticationEntryPoint);
+                    handling.accessDeniedHandler(jwtAccessDeniedHandler);
                 })
                 .sessionManagement(management -> {
                     management.sessionCreationPolicy(SessionCreationPolicy.STATELESS);

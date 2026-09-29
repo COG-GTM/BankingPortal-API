@@ -76,7 +76,10 @@ public class TokenServiceImpl implements TokenService {
                 .orElseThrow(() -> new UsernameNotFoundException(
                         String.format(ApiMessages.USER_NOT_FOUND_BY_ACCOUNT.getMessage(), accountNumber)));
 
-        return withUsername(accountNumber).password(user.getPassword()).build();
+        return withUsername(accountNumber)
+                .password(user.getPassword())
+                .roles(user.getRole().name())
+                .build();
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.webapp.bankingportal.service;
 
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
 import com.webapp.bankingportal.dto.UserResponse;
+import com.webapp.bankingportal.entity.Role;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
 import com.webapp.bankingportal.exception.PasswordResetException;
@@ -54,6 +56,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public ResponseEntity<String> registerUser(User user) {
         validationUtil.validateNewUser(user);
+        user.setRole(Role.CUSTOMER);
         encodePassword(user);
         val savedUser = saveUserWithAccount(user);
         return ResponseEntity.ok(JsonUtil.toJson(new UserResponse(savedUser)));
@@ -150,6 +153,24 @@ public class UserServiceImpl implements UserService {
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email).orElseThrow(
                 () -> new UserInvalidException(String.format(ApiMessages.USER_NOT_FOUND_BY_EMAIL.getMessage(), email)));
+    }
+
+    @Override
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .filter(user -> user.getAccount() != null)
+                .map(UserResponse::new)
+                .toList();
+    }
+
+    @Override
+    public UserResponse updateUserRole(String accountNumber, Role role) {
+        if (role == null) {
+            throw new IllegalArgumentException(ApiMessages.USER_ROLE_MISSING_ERROR.getMessage());
+        }
+        val user = getUserByAccountNumber(accountNumber);
+        user.setRole(role);
+        return new UserResponse(saveUser(user));
     }
 
     private void encodePassword(User user) {

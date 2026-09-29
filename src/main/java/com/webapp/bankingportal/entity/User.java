@@ -1,10 +1,15 @@
 package com.webapp.bankingportal.entity;
 
+import org.hibernate.annotations.ColumnDefault;
+
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -45,6 +50,12 @@ public class User {
 
     @NotEmpty
     private String address;
+
+    @JsonIgnore
+    @Enumerated(EnumType.STRING)
+    @ColumnDefault("'CUSTOMER'")
+    @Column(nullable = false)
+    private Role role = Role.CUSTOMER;
 
     // Establishing a one-to-one relationship with the account
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)

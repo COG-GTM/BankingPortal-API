@@ -1,11 +1,15 @@
 package com.webapp.bankingportal.service;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.ModelAndView;
 
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
+import com.webapp.bankingportal.dto.UserResponse;
+import com.webapp.bankingportal.entity.Role;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
 
@@ -36,5 +40,9 @@ public interface UserService {
     public User getUserByAccountNumber(String accountNo);
 
     public User getUserByEmail(String email);
+
+    public List<UserResponse> getAllUsers();
+
+    public UserResponse updateUserRole(String accountNumber, Role role);
 
 }

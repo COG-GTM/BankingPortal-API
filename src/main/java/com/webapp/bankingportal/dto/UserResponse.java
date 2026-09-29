@@ -18,6 +18,7 @@ public class UserResponse {
     private String ifscCode;
     private String branch;
     private String accountType;
+    private String role;
 
     public UserResponse(User user) {
         this.name = user.getName();
@@ -29,6 +30,7 @@ public class UserResponse {
         this.ifscCode = user.getAccount().getIfscCode();
         this.branch = user.getAccount().getBranch();
         this.accountType = user.getAccount().getAccountType();
+        this.role = user.getRole().name();
     }
 
 }

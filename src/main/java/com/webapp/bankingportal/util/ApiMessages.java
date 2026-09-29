@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public enum ApiMessages {
+    ACCESS_DENIED("Access denied: insufficient permissions"),
     ACCOUNT_NOT_FOUND("Account does not exist"),
     AMOUNT_EXCEED_100_000_ERROR("Amount cannot be greater than 100,000"),
     AMOUNT_INVALID_ERROR("Invalid amount"),
@@ -65,6 +66,7 @@ public enum ApiMessages {
     USER_PHONE_NUMBER_ALREADY_EXISTS_ERROR("Phone number already exists"),
     USER_PHONE_NUMBER_EMPTY_ERROR("Phone number cannot be empty"),
     USER_PHONE_NUMBER_INVALID_ERROR("Invalid phone number: %s for country code: %s"),
+    USER_ROLE_MISSING_ERROR("Role cannot be empty"),
     USER_REGISTRATION_SUCCESS("User registered successfully"),
     USER_UPDATE_SUCCESS("User updated successfully"),
     REDIS_CONNECTION_FAILURE("Cache service unavailable. Please try again.");
