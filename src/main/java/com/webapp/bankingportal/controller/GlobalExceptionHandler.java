@@ -6,6 +6,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.context.request.WebRequest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -85,6 +86,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(JsonProcessingException.class)
     public ResponseEntity<String> handleJsonProcessingException(JsonProcessingException ex) {
         return ResponseEntity.internalServerError().body(ex.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<String> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest()
+                .body(String.format("Invalid value '%s' for parameter '%s'", ex.getValue(), ex.getName()));
     }
 
     @ExceptionHandler(NotFoundException.class)

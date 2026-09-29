@@ -13,6 +13,7 @@ import com.webapp.bankingportal.service.TransactionService;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
 import com.webapp.bankingportal.util.LoggedinUser;
+import com.webapp.bankingportal.util.PaginationUtil;
 
 import lombok.RequiredArgsConstructor;
 import lombok.val;
@@ -92,16 +93,22 @@ public class AccountController {
     }
 
     @GetMapping("/transactions")
-    public ResponseEntity<String> getAllTransactionsByAccountNumber() {
+    public ResponseEntity<String> getAllTransactionsByAccountNumber(
+            @RequestParam(defaultValue = "" + PaginationUtil.DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = "" + PaginationUtil.DEFAULT_PAGE_SIZE) int size,
+            @RequestParam(defaultValue = PaginationUtil.DEFAULT_TRANSACTION_SORT) String sort) {
+        val pageable = PaginationUtil.transactionPageable(page, size, sort);
         val transactions = transactionService
-                .getAllTransactionsByAccountNumber(LoggedinUser.getAccountNumber());
+                .getTransactionsByAccountNumber(LoggedinUser.getAccountNumber(), pageable);
         return ResponseEntity.ok(JsonUtil.toJson(transactions));
     }
+
     @GetMapping("/send-statement")
-    public ResponseEntity<String> sendBankStatement() {
-        String accountNumber = LoggedinUser.getAccountNumber(); // Get logged-in user account
-        transactionService.sendBankStatementByEmail(accountNumber);
-        return ResponseEntity.ok("{\"message\": \"Bank statement sent to your email.\"}");
+    public ResponseEntity<String> sendBankStatement(
+            @RequestParam(defaultValue = PaginationUtil.DEFAULT_TRANSACTION_SORT) String sort) {
+        transactionService.sendBankStatementByEmail(LoggedinUser.getAccountNumber(),
+                PaginationUtil.transactionSort(sort));
+        return ResponseEntity.ok(ApiMessages.BANK_STATEMENT_SENT_SUCCESS.getMessage());
     }
 
 }

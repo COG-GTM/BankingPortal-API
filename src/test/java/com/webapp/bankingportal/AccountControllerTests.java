@@ -13,6 +13,7 @@ import com.webapp.bankingportal.dto.PinRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
+import com.webapp.bankingportal.util.PaginationUtil;
 
 import lombok.val;
 
@@ -679,6 +680,163 @@ public class AccountControllerTests extends BaseTest {
     public void test_transactions_unauthorized_access() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders
                 .get("/api/account/transactions"))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized());
+    }
+
+    @Test
+    public void test_transactions_returns_paged_response_with_defaults() throws Exception {
+        val amount = 100.0;
+        val userDetails = createAndLoginUserWithInitialBalance(amount);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/transactions")
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.content.length()").value(1))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.content[0].amount").value(amount))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.page").value(0))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.size").value(PaginationUtil.DEFAULT_PAGE_SIZE))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.totalElements").value(1))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.totalPages").value(1))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.first").value(true))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.last").value(true))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.sort").value(PaginationUtil.DEFAULT_TRANSACTION_SORT));
+    }
+
+    @Test
+    public void test_transactions_pagination_and_sorting() throws Exception {
+        val userDetails = createAndLoginUserWithInitialBalance(100.0);
+        val amounts = new double[] { 300.0, 200.0 };
+        for (val amount : amounts) {
+            mockMvc.perform(MockMvcRequestBuilders
+                    .post("/api/account/deposit")
+                    .header("Authorization", "Bearer " + userDetails.get("token"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(JsonUtil.toJson(new AmountRequest(userDetails.get("accountNumber"),
+                            userDetails.get("pin"), amount))))
+                    .andExpect(MockMvcResultMatchers.status().isOk());
+        }
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/transactions")
+                .param("page", "1")
+                .param("size", "2")
+                .param("sort", "amount,asc")
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.content.length()").value(1))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.content[0].amount").value(300.0))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.page").value(1))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.size").value(2))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.totalElements").value(3))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.totalPages").value(2))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.first").value(false))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.last").value(true))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.sort").value("amount,asc"));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/transactions")
+                .param("size", "2")
+                .param("sort", "amount,desc")
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.content[0].amount").value(300.0))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.content[1].amount").value(200.0));
+    }
+
+    @Test
+    public void test_transactions_invalid_page_size() throws Exception {
+        val userDetails = createAndLoginUser();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/transactions")
+                .param("size", String.valueOf(PaginationUtil.MAX_PAGE_SIZE + 1))
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content().string(String.format(
+                        ApiMessages.PAGE_SIZE_INVALID_ERROR.getMessage(), PaginationUtil.MAX_PAGE_SIZE)));
+    }
+
+    @Test
+    public void test_transactions_negative_page() throws Exception {
+        val userDetails = createAndLoginUser();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/transactions")
+                .param("page", "-1")
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.PAGE_NUMBER_INVALID_ERROR.getMessage()));
+    }
+
+    @Test
+    public void test_transactions_non_numeric_page() throws Exception {
+        val userDetails = createAndLoginUser();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/transactions")
+                .param("page", "abc")
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string("Invalid value 'abc' for parameter 'page'"));
+    }
+
+    @Test
+    public void test_transactions_invalid_sort_field() throws Exception {
+        val userDetails = createAndLoginUser();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/transactions")
+                .param("sort", "sourceAccount,asc")
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(CoreMatchers.startsWith("Invalid sort field: sourceAccount")));
+    }
+
+    @Test
+    public void test_transactions_invalid_sort_direction() throws Exception {
+        val userDetails = createAndLoginUser();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/transactions")
+                .param("sort", "amount,sideways")
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content().string(
+                        String.format(ApiMessages.SORT_DIRECTION_INVALID_ERROR.getMessage(), "sideways")));
+    }
+
+    @Test
+    public void test_send_statement_with_authorized_access() throws Exception {
+        val userDetails = createAndLoginUserWithInitialBalance(100.0);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/send-statement")
+                .param("sort", "amount,asc")
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.BANK_STATEMENT_SENT_SUCCESS.getMessage()));
+    }
+
+    @Test
+    public void test_send_statement_invalid_sort_field() throws Exception {
+        val userDetails = createAndLoginUser();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/send-statement")
+                .param("sort", "pin")
+                .header("Authorization", "Bearer " + userDetails.get("token")))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest());
+    }
+
+    @Test
+    public void test_send_statement_unauthorized_access() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/account/send-statement"))
                 .andExpect(MockMvcResultMatchers.status().isUnauthorized());
     }
 
