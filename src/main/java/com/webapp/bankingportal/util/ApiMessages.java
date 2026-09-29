@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public enum ApiMessages {
+    ACCOUNT_CONCURRENT_UPDATE_ERROR("The account was modified by another request. Please retry."),
     ACCOUNT_NOT_FOUND("Account does not exist"),
     AMOUNT_EXCEED_100_000_ERROR("Amount cannot be greater than 100,000"),
     AMOUNT_INVALID_ERROR("Invalid amount"),
