@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 
 import lombok.Data;
 
@@ -33,5 +34,9 @@ public class Transaction {
     @ManyToOne
     @JoinColumn(name = "target_account_id")
     private Account targetAccount;
+
+    @OneToOne
+    @JoinColumn(name = "reversed_transaction_id", unique = true)
+    private Transaction reversedTransaction;
 
 }

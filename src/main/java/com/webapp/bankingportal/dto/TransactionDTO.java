@@ -21,6 +21,7 @@ public class TransactionDTO {
     private Date transactionDate;
     private String sourceAccountNumber;
     private String targetAccountNumber;
+    private Long reversedTransactionId;
 
     public TransactionDTO(Transaction transaction) {
         this.id = transaction.getId();
@@ -36,6 +37,11 @@ public class TransactionDTO {
         }
 
         this.targetAccountNumber = targetAccountNumber;
+
+        val reversedTransaction = transaction.getReversedTransaction();
+        if (reversedTransaction != null) {
+            this.reversedTransactionId = reversedTransaction.getId();
+        }
     }
 
 }

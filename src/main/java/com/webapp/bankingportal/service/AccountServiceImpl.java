@@ -4,18 +4,22 @@ import java.util.Date;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.webapp.bankingportal.dto.TransactionDTO;
 import com.webapp.bankingportal.entity.Account;
 import com.webapp.bankingportal.entity.Transaction;
 import com.webapp.bankingportal.entity.TransactionType;
 import com.webapp.bankingportal.entity.User;
+import com.webapp.bankingportal.exception.ForbiddenException;
 import com.webapp.bankingportal.exception.FundTransferException;
 import com.webapp.bankingportal.exception.InsufficientBalanceException;
 import com.webapp.bankingportal.exception.InvalidAmountException;
 import com.webapp.bankingportal.exception.InvalidPinException;
 import com.webapp.bankingportal.exception.NotFoundException;
+import com.webapp.bankingportal.exception.TransactionAlreadyReversedException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
 import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.repository.TransactionRepository;
@@ -237,6 +241,66 @@ public class AccountServiceImpl implements AccountService {
         transaction.setSourceAccount(sourceAccount);
         transaction.setTargetAccount(targetAccount);
         transactionRepository.save(transaction);
+    }
+
+    @Transactional
+    @Override
+    public TransactionDTO reverseFundTransfer(String accountNumber, Long transactionId, String pin) {
+        // Lock the original transfer first so concurrent reversals of it are serialized.
+        val originalTransaction = transactionRepository.findByIdForUpdate(transactionId)
+                .orElseThrow(() -> new NotFoundException(ApiMessages.TRANSACTION_NOT_FOUND.getMessage()));
+
+        val sourceAccount = originalTransaction.getSourceAccount();
+        val targetAccount = originalTransaction.getTargetAccount();
+        val isSender = sourceAccount != null && sourceAccount.getAccountNumber().equals(accountNumber);
+        val isRecipient = targetAccount != null && targetAccount.getAccountNumber().equals(accountNumber);
+
+        // Transactions the caller is not a party to are reported as missing to avoid leaking their existence.
+        if (!isSender && !isRecipient) {
+            throw new NotFoundException(ApiMessages.TRANSACTION_NOT_FOUND.getMessage());
+        }
+
+        if (originalTransaction.getTransactionType() != TransactionType.CASH_TRANSFER) {
+            throw new FundTransferException(ApiMessages.TRANSACTION_NOT_REVERSIBLE.getMessage());
+        }
+
+        if (!isSender) {
+            throw new ForbiddenException(ApiMessages.TRANSACTION_REVERSAL_FORBIDDEN.getMessage());
+        }
+
+        validatePin(accountNumber, pin);
+
+        if (transactionRepository.existsByReversedTransaction_Id(transactionId)) {
+            throw new TransactionAlreadyReversedException(ApiMessages.TRANSACTION_ALREADY_REVERSED.getMessage());
+        }
+
+        val amount = originalTransaction.getAmount();
+        if (targetAccount.getBalance() < amount) {
+            throw new InsufficientBalanceException(
+                    ApiMessages.TRANSACTION_REVERSAL_INSUFFICIENT_BALANCE.getMessage());
+        }
+
+        targetAccount.setBalance(targetAccount.getBalance() - amount);
+        accountRepository.save(targetAccount);
+
+        sourceAccount.setBalance(sourceAccount.getBalance() + amount);
+        accountRepository.save(sourceAccount);
+
+        val reversal = new Transaction();
+        reversal.setAmount(amount);
+        reversal.setTransactionType(TransactionType.CASH_TRANSFER_REVERSAL);
+        reversal.setTransactionDate(new Date());
+        reversal.setSourceAccount(targetAccount);
+        reversal.setTargetAccount(sourceAccount);
+        reversal.setReversedTransaction(originalTransaction);
+
+        try {
+            val savedReversal = transactionRepository.saveAndFlush(reversal);
+            log.info("Reversed fund transfer {} with reversal transaction {}", transactionId, savedReversal.getId());
+            return new TransactionDTO(savedReversal);
+        } catch (DataIntegrityViolationException e) {
+            throw new TransactionAlreadyReversedException(ApiMessages.TRANSACTION_ALREADY_REVERSED.getMessage());
+        }
     }
 
 }

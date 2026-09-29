@@ -8,6 +8,7 @@ import com.webapp.bankingportal.dto.AmountRequest;
 import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
+import com.webapp.bankingportal.dto.TransferReversalRequest;
 import com.webapp.bankingportal.service.AccountService;
 import com.webapp.bankingportal.service.TransactionService;
 import com.webapp.bankingportal.util.ApiMessages;
@@ -89,6 +90,15 @@ public class AccountController {
                 fundTransferRequest.amount());
 
         return ResponseEntity.ok(ApiMessages.CASH_TRANSFER_SUCCESS.getMessage());
+    }
+
+    @PostMapping("/fund-transfer/{transactionId}/reverse")
+    public ResponseEntity<String> reverseFundTransfer(
+            @PathVariable Long transactionId,
+            @RequestBody(required = false) TransferReversalRequest transferReversalRequest) {
+        val pin = transferReversalRequest == null ? null : transferReversalRequest.pin();
+        val reversal = accountService.reverseFundTransfer(LoggedinUser.getAccountNumber(), transactionId, pin);
+        return ResponseEntity.ok(JsonUtil.toJson(reversal));
     }
 
     @GetMapping("/transactions")

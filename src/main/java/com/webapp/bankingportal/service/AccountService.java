@@ -1,5 +1,6 @@
 package com.webapp.bankingportal.service;
 
+import com.webapp.bankingportal.dto.TransactionDTO;
 import com.webapp.bankingportal.entity.Account;
 import com.webapp.bankingportal.entity.User;
 
@@ -12,6 +13,7 @@ public interface AccountService {
 	public void cashDeposit(String accountNumber, String pin, double amount);
 	public void cashWithdrawal(String accountNumber, String pin, double amount);
 	public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount);
+	public TransactionDTO reverseFundTransfer(String accountNumber, Long transactionId, String pin);
 	
 	
 }
