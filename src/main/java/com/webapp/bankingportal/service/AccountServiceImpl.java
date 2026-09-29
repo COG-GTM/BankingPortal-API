@@ -1,24 +1,29 @@
 package com.webapp.bankingportal.service;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.webapp.bankingportal.dto.TransferIssue;
+import com.webapp.bankingportal.dto.TransferPreviewResponse;
 import com.webapp.bankingportal.entity.Account;
 import com.webapp.bankingportal.entity.Transaction;
 import com.webapp.bankingportal.entity.TransactionType;
 import com.webapp.bankingportal.entity.User;
-import com.webapp.bankingportal.exception.FundTransferException;
 import com.webapp.bankingportal.exception.InsufficientBalanceException;
-import com.webapp.bankingportal.exception.InvalidAmountException;
 import com.webapp.bankingportal.exception.InvalidPinException;
 import com.webapp.bankingportal.exception.NotFoundException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
 import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.repository.TransactionRepository;
+import com.webapp.bankingportal.type.TransactionRuleViolation;
+import com.webapp.bankingportal.type.TransferWarning;
 import com.webapp.bankingportal.util.ApiMessages;
 
 import lombok.RequiredArgsConstructor;
@@ -36,6 +41,7 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+    private final TransferPolicy transferPolicy;
 
     @Override
     public Account createAccount(User user) {
@@ -142,17 +148,27 @@ public class AccountServiceImpl implements AccountService {
         accountRepository.save(account);
     }
 
-    private void validateAmount(double amount) {
+    private List<TransactionRuleViolation> amountViolations(double amount) {
+        val violations = new ArrayList<TransactionRuleViolation>();
         if (amount <= 0) {
-            throw new InvalidAmountException(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage());
+            violations.add(TransactionRuleViolation.AMOUNT_NOT_POSITIVE);
         }
 
-        if (amount % 100 != 0) {
-            throw new InvalidAmountException(ApiMessages.AMOUNT_NOT_MULTIPLE_OF_100_ERROR.getMessage());
+        if (amount % TransferPolicy.AMOUNT_STEP != 0) {
+            violations.add(TransactionRuleViolation.AMOUNT_NOT_MULTIPLE_OF_100);
         }
 
-        if (amount > 100000) {
-            throw new InvalidAmountException(ApiMessages.AMOUNT_EXCEED_100_000_ERROR.getMessage());
+        if (amount > TransferPolicy.MAX_TRANSACTION_AMOUNT) {
+            violations.add(TransactionRuleViolation.AMOUNT_EXCEEDS_TRANSACTION_LIMIT);
+        }
+
+        return violations;
+    }
+
+    private void validateAmount(double amount) {
+        val violations = amountViolations(amount);
+        if (!violations.isEmpty()) {
+            throw violations.get(0).toException();
         }
     }
 
@@ -200,43 +216,114 @@ public class AccountServiceImpl implements AccountService {
         transactionRepository.save(transaction);
     }
 
+    private record TransferPlan(
+            Account sourceAccount,
+            Account targetAccount,
+            List<TransactionRuleViolation> violations,
+            TransferPreviewResponse preview) {
+    }
+
+    /**
+     * Single source of truth for transfer rules, fees and resulting balances.
+     * Both {@link #previewFundTransfer} and {@link #fundTransfer} go through this
+     * method, so a preview always reflects what execution would do against the
+     * same account state. Violations are ordered by precedence; execution
+     * rejects the transfer with the first one.
+     */
+    private TransferPlan planTransfer(String sourceAccountNumber, String targetAccountNumber, double amount) {
+        val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
+        if (sourceAccount == null) {
+            throw new NotFoundException(ApiMessages.ACCOUNT_NOT_FOUND.getMessage());
+        }
+
+        val violations = amountViolations(amount);
+
+        Account targetAccount = null;
+        if (sourceAccountNumber.equals(targetAccountNumber)) {
+            violations.add(TransactionRuleViolation.SAME_ACCOUNT);
+        } else {
+            targetAccount = accountRepository.findByAccountNumber(targetAccountNumber);
+            if (targetAccount == null) {
+                violations.add(TransactionRuleViolation.TARGET_ACCOUNT_NOT_FOUND);
+            }
+        }
+
+        val fee = transferPolicy.calculateFee(amount);
+        val totalDebit = BigDecimal.valueOf(amount).add(BigDecimal.valueOf(fee));
+        val currentBalance = BigDecimal.valueOf(sourceAccount.getBalance());
+        val resultingBalance = currentBalance.subtract(totalDebit);
+        if (resultingBalance.signum() < 0) {
+            violations.add(TransactionRuleViolation.INSUFFICIENT_BALANCE);
+        }
+
+        val warnings = new ArrayList<TransferWarning>();
+        if (transferPolicy.isApproachingTransactionLimit(amount)) {
+            warnings.add(TransferWarning.APPROACHING_TRANSACTION_LIMIT);
+        }
+
+        if (violations.isEmpty() && transferPolicy.isLowBalance(resultingBalance.doubleValue())) {
+            warnings.add(TransferWarning.LOW_RESULTING_BALANCE);
+        }
+
+        val preview = new TransferPreviewResponse(
+                sourceAccountNumber,
+                targetAccountNumber,
+                amount,
+                fee,
+                totalDebit.doubleValue(),
+                sourceAccount.getBalance(),
+                resultingBalance.doubleValue(),
+                violations.isEmpty(),
+                violations.stream().map(TransferIssue::of).toList(),
+                warnings.stream().map(TransferIssue::of).toList());
+
+        return new TransferPlan(sourceAccount, targetAccount, List.copyOf(violations), preview);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public TransferPreviewResponse previewFundTransfer(String sourceAccountNumber, String targetAccountNumber,
+            double amount) {
+        return planTransfer(sourceAccountNumber, targetAccountNumber, amount).preview();
+    }
+
     @Transactional
     @Override
     public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
         validatePin(sourceAccountNumber, pin);
-        validateAmount(amount);
 
-        if (sourceAccountNumber.equals(targetAccountNumber)) {
-            throw new FundTransferException(ApiMessages.CASH_TRANSFER_SAME_ACCOUNT_ERROR.getMessage());
+        val plan = planTransfer(sourceAccountNumber, targetAccountNumber, amount);
+        if (!plan.violations().isEmpty()) {
+            throw plan.violations().get(0).toException();
         }
 
-        val targetAccount = accountRepository.findByAccountNumber(targetAccountNumber);
-        if (targetAccount == null) {
-            throw new NotFoundException(ApiMessages.ACCOUNT_NOT_FOUND.getMessage());
-        }
+        val preview = plan.preview();
+        val sourceAccount = plan.sourceAccount();
+        val targetAccount = plan.targetAccount();
 
-        val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
-        val sourceBalance = sourceAccount.getBalance();
-        if (sourceBalance < amount) {
-            throw new InsufficientBalanceException(ApiMessages.BALANCE_INSUFFICIENT_ERROR.getMessage());
-        }
-
-        val newSourceBalance = sourceBalance - amount;
-        sourceAccount.setBalance(newSourceBalance);
+        sourceAccount.setBalance(preview.resultingBalance());
         accountRepository.save(sourceAccount);
 
-        val targetBalance = targetAccount.getBalance();
-        val newTargetBalance = targetBalance + amount;
-        targetAccount.setBalance(newTargetBalance);
+        targetAccount.setBalance(targetAccount.getBalance() + preview.amount());
         accountRepository.save(targetAccount);
 
+        val transactionDate = new Date();
         val transaction = new Transaction();
-        transaction.setAmount(amount);
+        transaction.setAmount(preview.amount());
         transaction.setTransactionType(TransactionType.CASH_TRANSFER);
-        transaction.setTransactionDate(new Date());
+        transaction.setTransactionDate(transactionDate);
         transaction.setSourceAccount(sourceAccount);
         transaction.setTargetAccount(targetAccount);
         transactionRepository.save(transaction);
+
+        if (preview.fee() > 0) {
+            val feeTransaction = new Transaction();
+            feeTransaction.setAmount(preview.fee());
+            feeTransaction.setTransactionType(TransactionType.TRANSFER_FEE);
+            feeTransaction.setTransactionDate(transactionDate);
+            feeTransaction.setSourceAccount(sourceAccount);
+            transactionRepository.save(feeTransaction);
+        }
     }
 
 }
