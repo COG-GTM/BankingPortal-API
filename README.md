@@ -49,7 +49,7 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 
 1. Clone the repository: `git clone https://github.com/yourusername/banking-portal-api.git`
 2. Navigate to the project folder: `cd banking-portal-api`
-3. Configure MySQL: Set up a MySQL database, create a copy of `application.properties.sample`, rename it `application.properties`, and update the properties as needed.
+3. Configure MySQL: Set up a MySQL database, create a copy of `application.properties.sample`, rename it `application.properties`, and update the properties as needed. Secrets (`DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `GEO_API_KEY`) are read from environment variables; see `docker/.env.example`. Generate a JWT key with `openssl rand -base64 64`. For the Docker Compose stack, copy `docker/.env.example` to `docker/.env` and fill in values.
 4. Build and run the project: `mvn spring-boot:run`
 
 ## Screenshots

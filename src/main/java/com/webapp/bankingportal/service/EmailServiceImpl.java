@@ -1,6 +1,5 @@
 package com.webapp.bankingportal.service;
 
-import java.io.File;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.mail.MailException;
@@ -112,24 +111,5 @@ public class EmailServiceImpl implements EmailService {
                 "<p>Regards,<br/>OneStopBank Team</p>" +
                 "</div>";
     }
-
-    public void sendEmailWithAttachment(String to, String subject, String text, String attachmentFilePath) {
-        try {
-            val message = mailSender.createMimeMessage();
-            val helper = new MimeMessageHelper(message, true);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(text, true); // Set the second parameter to true to send HTML content
-
-            // Add an attachment to the email
-            val attachmentFile = new File(attachmentFilePath);
-            helper.addAttachment(attachmentFile.getName(), attachmentFile);
-
-            mailSender.send(message);
-        } catch (MessagingException e) {
-            log.error("Failed to send email to {}", to, e);
-        }
-    }
-
 
 }

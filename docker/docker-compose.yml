@@ -5,11 +5,13 @@ services:
     image: mysql:8.0
     container_name: bankingportal-mysql
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: bankingapp
-      MYSQL_USER: bankinguser
-      MYSQL_PASSWORD: bankingpass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in docker/.env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bankingapp}
+      MYSQL_USER: ${MYSQL_USER:-bankinguser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in docker/.env}
     ports:
       - "3306:3306"
     volumes:
@@ -23,6 +25,8 @@ services:
     image: redis:7-alpine
     container_name: bankingportal-redis
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "6379:6379"
     volumes:
