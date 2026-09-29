@@ -14,6 +14,8 @@ import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
 import com.webapp.bankingportal.util.LoggedinUser;
 
+import jakarta.validation.Valid;
+
 import lombok.RequiredArgsConstructor;
 import lombok.val;
 
@@ -59,7 +61,7 @@ public class AccountController {
 
     @PostMapping("/deposit")
     @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/deposit' + ':' + (#amountRequest).hashCode()")
-    public ResponseEntity<String> cashDeposit(@RequestBody AmountRequest amountRequest) {
+    public ResponseEntity<String> cashDeposit(@Valid @RequestBody AmountRequest amountRequest) {
         accountService.cashDeposit(
                 LoggedinUser.getAccountNumber(),
                 amountRequest.pin(),
@@ -70,7 +72,7 @@ public class AccountController {
 
     @PostMapping("/withdraw")
     @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/withdraw' + ':' + (#amountRequest).hashCode()")
-    public ResponseEntity<String> cashWithdrawal(@RequestBody AmountRequest amountRequest) {
+    public ResponseEntity<String> cashWithdrawal(@Valid @RequestBody AmountRequest amountRequest) {
         accountService.cashWithdrawal(
                 LoggedinUser.getAccountNumber(),
                 amountRequest.pin(),
@@ -81,7 +83,7 @@ public class AccountController {
 
     @PostMapping("/fund-transfer")
     @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/fund-transfer' + ':' + (#fundTransferRequest).hashCode()")
-    public ResponseEntity<String> fundTransfer(@RequestBody FundTransferRequest fundTransferRequest) {
+    public ResponseEntity<String> fundTransfer(@Valid @RequestBody FundTransferRequest fundTransferRequest) {
         accountService.fundTransfer(
                 LoggedinUser.getAccountNumber(),
                 fundTransferRequest.targetAccountNumber(),

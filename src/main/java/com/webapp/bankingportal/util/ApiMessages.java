@@ -41,6 +41,8 @@ public enum ApiMessages {
     PIN_INVALID_ERROR("Invalid PIN"),
     PIN_NOT_CREATED("PIN has not been created for this account"),
     PIN_UPDATE_SUCCESS("{\"hasPIN\": false, \"msg\": \"PIN updated successfully\"}"),
+    REQUEST_BODY_INVALID_ERROR("Request body is missing or malformed"),
+    TARGET_ACCOUNT_EMPTY_ERROR("Target account number cannot be empty"),
     TOKEN_ALREADY_EXISTS_ERROR("Token already exists"),
     TOKEN_EMPTY_ERROR("Token is empty"),
     TOKEN_EXPIRED_ERROR("Token has expired"),
@@ -67,6 +69,7 @@ public enum ApiMessages {
     USER_PHONE_NUMBER_INVALID_ERROR("Invalid phone number: %s for country code: %s"),
     USER_REGISTRATION_SUCCESS("User registered successfully"),
     USER_UPDATE_SUCCESS("User updated successfully"),
+    VALIDATION_FAILED("Validation failed"),
     REDIS_CONNECTION_FAILURE("Cache service unavailable. Please try again.");
     @Getter
     private final String message;
