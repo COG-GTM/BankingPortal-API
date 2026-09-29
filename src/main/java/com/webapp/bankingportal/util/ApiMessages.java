@@ -67,6 +67,13 @@ public enum ApiMessages {
     USER_PHONE_NUMBER_INVALID_ERROR("Invalid phone number: %s for country code: %s"),
     USER_REGISTRATION_SUCCESS("User registered successfully"),
     USER_UPDATE_SUCCESS("User updated successfully"),
+    RECURRING_TRANSFER_CANCEL_SUCCESS("{\"msg\": \"Recurring transfer cancelled successfully\"}"),
+    RECURRING_TRANSFER_DATES_MISSING("Start date and end date are required"),
+    RECURRING_TRANSFER_END_BEFORE_START("End date cannot be before start date"),
+    RECURRING_TRANSFER_FREQUENCY_MISSING("Frequency is required (WEEKLY or MONTHLY)"),
+    RECURRING_TRANSFER_NOT_ACTIVE("Recurring transfer is not active"),
+    RECURRING_TRANSFER_NOT_FOUND("Recurring transfer not found"),
+    RECURRING_TRANSFER_START_IN_PAST("Start date cannot be in the past"),
     REDIS_CONNECTION_FAILURE("Cache service unavailable. Please try again.");
     @Getter
     private final String message;

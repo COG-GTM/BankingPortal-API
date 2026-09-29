@@ -204,8 +204,28 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
         validatePin(sourceAccountNumber, pin);
-        validateAmount(amount);
+        transferFunds(sourceAccountNumber, targetAccountNumber, amount);
+    }
 
+    @Override
+    public void validateFundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin,
+            double amount) {
+        validatePin(sourceAccountNumber, pin);
+        validateAmount(amount);
+        findTransferTarget(sourceAccountNumber, targetAccountNumber);
+    }
+
+    @Transactional
+    @Override
+    public void executeScheduledFundTransfer(String sourceAccountNumber, String targetAccountNumber, double amount) {
+        val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
+        if (sourceAccount == null) {
+            throw new NotFoundException(ApiMessages.ACCOUNT_NOT_FOUND.getMessage());
+        }
+        transferFunds(sourceAccountNumber, targetAccountNumber, amount);
+    }
+
+    private Account findTransferTarget(String sourceAccountNumber, String targetAccountNumber) {
         if (sourceAccountNumber.equals(targetAccountNumber)) {
             throw new FundTransferException(ApiMessages.CASH_TRANSFER_SAME_ACCOUNT_ERROR.getMessage());
         }
@@ -214,6 +234,12 @@ public class AccountServiceImpl implements AccountService {
         if (targetAccount == null) {
             throw new NotFoundException(ApiMessages.ACCOUNT_NOT_FOUND.getMessage());
         }
+        return targetAccount;
+    }
+
+    private void transferFunds(String sourceAccountNumber, String targetAccountNumber, double amount) {
+        validateAmount(amount);
+        val targetAccount = findTransferTarget(sourceAccountNumber, targetAccountNumber);
 
         val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
         val sourceBalance = sourceAccount.getBalance();
