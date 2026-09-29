@@ -1,5 +1,6 @@
 package com.webapp.bankingportal.controller;
 
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -38,6 +39,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<String> handleBadCredentialsException(BadCredentialsException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    public ResponseEntity<String> handleConcurrencyFailureException(ConcurrencyFailureException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiMessages.CONCURRENT_UPDATE_ERROR.getMessage());
     }
 
     @ExceptionHandler(FundTransferException.class)

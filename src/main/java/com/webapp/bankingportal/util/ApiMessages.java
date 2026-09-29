@@ -13,6 +13,7 @@ public enum ApiMessages {
     BALANCE_INSUFFICIENT_ERROR("Insufficient balance"),
     CASH_DEPOSIT_SUCCESS("{\"msg\": \"Cash deposited successfully\"}"),
     CASH_TRANSFER_SAME_ACCOUNT_ERROR("Source and target account cannot be the same"),
+    CONCURRENT_UPDATE_ERROR("The account was modified by another request. Please retry."),
     CASH_TRANSFER_SUCCESS("{\"msg\": \"Fund transferred successfully\"}"),
     CASH_WITHDRAWAL_SUCCESS("{\"msg\": \"Cash withdrawn successfully\"}"),
     EMAIL_SUBJECT_LOGIN("New login to OneStopBank"),
