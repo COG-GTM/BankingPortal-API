@@ -1,7 +1,6 @@
 package com.webapp.bankingportal.controller;
 
 import com.webapp.bankingportal.service.EmailService;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,7 +32,7 @@ public class UserController {
     private EmailService emailService;
 
     @PostMapping("/register")
-    public ResponseEntity<String> registerUser(@Valid @RequestBody User user) {
+    public ResponseEntity<String> registerUser(@RequestBody User user) {
         ResponseEntity<String> response = userService.registerUser(user);
 
         // Only send email if registration succeeded

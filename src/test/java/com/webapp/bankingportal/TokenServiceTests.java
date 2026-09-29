@@ -13,6 +13,7 @@ import com.webapp.bankingportal.util.ApiMessages;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 
 import lombok.val;
 
@@ -121,7 +122,7 @@ public class TokenServiceTests extends BaseTest {
     public void test_get_username_from_token_with_invalid_signature() {
         val token = Jwts.builder().setSubject(getRandomAccountNumber())
                 .setIssuedAt(new Date())
-                .signWith(SignatureAlgorithm.HS256, "invalid")
+                .signWith(Keys.secretKeyFor(SignatureAlgorithm.HS256))
                 .compact();
 
         Assertions.assertThrows(InvalidTokenException.class,
