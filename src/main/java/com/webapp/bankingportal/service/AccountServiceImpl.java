@@ -204,6 +204,30 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
         validatePin(sourceAccountNumber, pin);
+        transferFunds(sourceAccountNumber, targetAccountNumber, amount);
+    }
+
+    @Override
+    public void validateFundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin,
+            double amount) {
+        validatePin(sourceAccountNumber, pin);
+        validateTransferTarget(sourceAccountNumber, targetAccountNumber, amount);
+    }
+
+    /**
+     * Executes a transfer that was authorised with a PIN when it was scheduled.
+     * Not exposed through any controller.
+     */
+    @Transactional
+    @Override
+    public void scheduledFundTransfer(String sourceAccountNumber, String targetAccountNumber, double amount) {
+        if (accountRepository.findByAccountNumber(sourceAccountNumber) == null) {
+            throw new NotFoundException(ApiMessages.ACCOUNT_NOT_FOUND.getMessage());
+        }
+        transferFunds(sourceAccountNumber, targetAccountNumber, amount);
+    }
+
+    private Account validateTransferTarget(String sourceAccountNumber, String targetAccountNumber, double amount) {
         validateAmount(amount);
 
         if (sourceAccountNumber.equals(targetAccountNumber)) {
@@ -214,6 +238,11 @@ public class AccountServiceImpl implements AccountService {
         if (targetAccount == null) {
             throw new NotFoundException(ApiMessages.ACCOUNT_NOT_FOUND.getMessage());
         }
+        return targetAccount;
+    }
+
+    private void transferFunds(String sourceAccountNumber, String targetAccountNumber, double amount) {
+        val targetAccount = validateTransferTarget(sourceAccountNumber, targetAccountNumber, amount);
 
         val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
         val sourceBalance = sourceAccount.getBalance();

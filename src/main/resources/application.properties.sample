@@ -30,3 +30,7 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 # Geolocation API
 geo.api.url=https://api.findip.net/
 geo.api.key=your-api-key
+
+# Recurring transfers (checked hourly by default; due dates are day-granular)
+recurring-transfer.scheduler.enabled=true
+recurring-transfer.scheduler.cron=0 0 * * * *

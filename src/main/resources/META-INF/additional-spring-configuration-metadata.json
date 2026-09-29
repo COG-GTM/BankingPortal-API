@@ -29,6 +29,18 @@
             "name": "geo.api.key",
             "type": "java.lang.String",
             "description": "Geolocation API key"
+        },
+        {
+            "name": "recurring-transfer.scheduler.enabled",
+            "type": "java.lang.Boolean",
+            "description": "Whether the recurring transfer scheduler runs",
+            "defaultValue": true
+        },
+        {
+            "name": "recurring-transfer.scheduler.cron",
+            "type": "java.lang.String",
+            "description": "Cron expression for processing due recurring transfers",
+            "defaultValue": "0 0 * * * *"
         }
     ]
 }
