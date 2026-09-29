@@ -25,6 +25,7 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 - PIN Management: Users can create and update their PINs for added security.
 - Cash Deposit and Withdrawal: Users can deposit and withdraw cash from their accounts.
 - Fund Transfer: Users can transfer funds to other accounts within the system.
+- Bulk Fund Transfer: `POST /api/account/fund-transfer/bulk` accepts up to 50 transfers authorized by one PIN and reports success/failure per item. By default each transfer succeeds or fails independently (`200` all succeeded, `207` partial, `422` none succeeded); set `"atomic": true` to apply all transfers or none.
 - Transaction History: Users can view their transaction history.
 
 ## Technologies Used

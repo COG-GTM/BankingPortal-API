@@ -1,10 +1,13 @@
 package com.webapp.bankingportal.controller;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.cache.annotation.Cacheable;
 import com.webapp.bankingportal.dto.AmountRequest;
+import com.webapp.bankingportal.dto.BulkFundTransferRequest;
+import com.webapp.bankingportal.dto.BulkFundTransferResponse;
 import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
@@ -89,6 +92,25 @@ public class AccountController {
                 fundTransferRequest.amount());
 
         return ResponseEntity.ok(ApiMessages.CASH_TRANSFER_SUCCESS.getMessage());
+    }
+
+    @PostMapping("/fund-transfer/bulk")
+    @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/fund-transfer/bulk' + ':' + (#bulkFundTransferRequest).hashCode()", unless = "#result.body.status().name() == 'FAILED'")
+    public ResponseEntity<BulkFundTransferResponse> bulkFundTransfer(
+            @RequestBody BulkFundTransferRequest bulkFundTransferRequest) {
+        val response = accountService.bulkFundTransfer(
+                LoggedinUser.getAccountNumber(),
+                bulkFundTransferRequest.pin(),
+                bulkFundTransferRequest.transfers(),
+                bulkFundTransferRequest.atomic());
+
+        val status = switch (response.status()) {
+            case COMPLETED -> HttpStatus.OK;
+            case PARTIALLY_COMPLETED -> HttpStatus.MULTI_STATUS;
+            case FAILED -> HttpStatus.UNPROCESSABLE_ENTITY;
+        };
+
+        return ResponseEntity.status(status).body(response);
     }
 
     @GetMapping("/transactions")

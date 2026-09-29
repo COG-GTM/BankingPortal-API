@@ -1,12 +1,18 @@
 package com.webapp.bankingportal.service;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.webapp.bankingportal.dto.BulkFundTransferResponse;
+import com.webapp.bankingportal.dto.BulkTransferItem;
+import com.webapp.bankingportal.dto.BulkTransferItemResult;
+import com.webapp.bankingportal.dto.BulkTransferItemResult.Status;
 import com.webapp.bankingportal.entity.Account;
 import com.webapp.bankingportal.entity.Transaction;
 import com.webapp.bankingportal.entity.TransactionType;
@@ -30,6 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @RequiredArgsConstructor
 public class AccountServiceImpl implements AccountService {
+
+    static final int MAX_BULK_TRANSFER_SIZE = 50;
+
 @Autowired
     private final AccountRepository accountRepository;
     @Autowired
@@ -204,9 +213,111 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
         validatePin(sourceAccountNumber, pin);
+
+        val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
+        val targetAccount = validateTransfer(sourceAccount, targetAccountNumber, amount, sourceAccount.getBalance());
+        executeTransfer(sourceAccount, targetAccount, amount);
+    }
+
+    /**
+     * Processes transfers in request order against a running balance. Items that
+     * fail business validation are reported and never touch any balance, so in
+     * non-atomic mode the successful items are committed and the failed ones are
+     * no-ops. In atomic mode every item is validated before any is executed, and
+     * nothing is applied if a single item fails. Unexpected errors propagate and
+     * roll back the whole batch.
+     */
+    @Transactional
+    @Override
+    public BulkFundTransferResponse bulkFundTransfer(String sourceAccountNumber, String pin,
+            List<BulkTransferItem> transfers, boolean atomic) {
+        validatePin(sourceAccountNumber, pin);
+        validateBatchSize(transfers);
+
+        val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
+        val results = new ArrayList<BulkTransferItemResult>(transfers.size());
+        val validatedTargets = new ArrayList<Account>(transfers.size());
+        var availableBalance = sourceAccount.getBalance();
+        var anyFailed = false;
+
+        for (int index = 0; index < transfers.size(); index++) {
+            val item = transfers.get(index);
+            try {
+                if (item == null) {
+                    throw new FundTransferException(ApiMessages.BULK_TRANSFER_ITEM_NULL_ERROR.getMessage());
+                }
+
+                val targetAccount = validateTransfer(sourceAccount, item.targetAccountNumber(), item.amount(),
+                        availableBalance);
+                availableBalance -= item.amount();
+
+                if (atomic) {
+                    validatedTargets.add(targetAccount);
+                    results.add(null);
+                } else {
+                    val transaction = executeTransfer(sourceAccount, targetAccount, item.amount());
+                    results.add(itemResult(index, item, Status.SUCCESS,
+                            ApiMessages.BULK_TRANSFER_SUCCESS.getMessage(), transaction.getId()));
+                }
+            } catch (FundTransferException | NotFoundException | InvalidAmountException
+                    | InsufficientBalanceException e) {
+                anyFailed = true;
+                validatedTargets.add(null);
+                results.add(itemResult(index, item, Status.FAILED, e.getMessage(), null));
+            }
+        }
+
+        if (atomic) {
+            for (int index = 0; index < transfers.size(); index++) {
+                if (results.get(index) != null) {
+                    continue;
+                }
+
+                val item = transfers.get(index);
+                if (anyFailed) {
+                    results.set(index, itemResult(index, item, Status.SKIPPED,
+                            ApiMessages.BULK_TRANSFER_SKIPPED.getMessage(), null));
+                } else {
+                    val transaction = executeTransfer(sourceAccount, validatedTargets.get(index), item.amount());
+                    results.set(index, itemResult(index, item, Status.SUCCESS,
+                            ApiMessages.BULK_TRANSFER_SUCCESS.getMessage(), transaction.getId()));
+                }
+            }
+        }
+
+        val response = BulkFundTransferResponse.of(atomic, results);
+        log.info("Bulk transfer from account {}: status={}, succeeded={}, failed={}, skipped={}",
+                sourceAccountNumber, response.status(), response.succeeded(), response.failed(), response.skipped());
+        return response;
+    }
+
+    private void validateBatchSize(List<BulkTransferItem> transfers) {
+        if (transfers == null || transfers.isEmpty()) {
+            throw new FundTransferException(ApiMessages.BULK_TRANSFER_EMPTY_ERROR.getMessage());
+        }
+
+        if (transfers.size() > MAX_BULK_TRANSFER_SIZE) {
+            throw new FundTransferException(
+                    String.format(ApiMessages.BULK_TRANSFER_SIZE_EXCEEDED_ERROR.getMessage(), MAX_BULK_TRANSFER_SIZE));
+        }
+    }
+
+    private static BulkTransferItemResult itemResult(int index, BulkTransferItem item, Status status,
+            String message, Long transactionId) {
+        return new BulkTransferItemResult(
+                index,
+                item == null ? null : item.targetAccountNumber(),
+                item == null ? null : item.amount(),
+                status,
+                message,
+                transactionId);
+    }
+
+    private Account validateTransfer(Account sourceAccount, String targetAccountNumber, double amount,
+            double availableBalance) {
         validateAmount(amount);
 
-        if (sourceAccountNumber.equals(targetAccountNumber)) {
+        if (sourceAccount.getAccountNumber().equals(targetAccountNumber)) {
             throw new FundTransferException(ApiMessages.CASH_TRANSFER_SAME_ACCOUNT_ERROR.getMessage());
         }
 
@@ -215,19 +326,18 @@ public class AccountServiceImpl implements AccountService {
             throw new NotFoundException(ApiMessages.ACCOUNT_NOT_FOUND.getMessage());
         }
 
-        val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
-        val sourceBalance = sourceAccount.getBalance();
-        if (sourceBalance < amount) {
+        if (availableBalance < amount) {
             throw new InsufficientBalanceException(ApiMessages.BALANCE_INSUFFICIENT_ERROR.getMessage());
         }
 
-        val newSourceBalance = sourceBalance - amount;
-        sourceAccount.setBalance(newSourceBalance);
+        return targetAccount;
+    }
+
+    private Transaction executeTransfer(Account sourceAccount, Account targetAccount, double amount) {
+        sourceAccount.setBalance(sourceAccount.getBalance() - amount);
         accountRepository.save(sourceAccount);
 
-        val targetBalance = targetAccount.getBalance();
-        val newTargetBalance = targetBalance + amount;
-        targetAccount.setBalance(newTargetBalance);
+        targetAccount.setBalance(targetAccount.getBalance() + amount);
         accountRepository.save(targetAccount);
 
         val transaction = new Transaction();
@@ -236,7 +346,7 @@ public class AccountServiceImpl implements AccountService {
         transaction.setTransactionDate(new Date());
         transaction.setSourceAccount(sourceAccount);
         transaction.setTargetAccount(targetAccount);
-        transactionRepository.save(transaction);
+        return transactionRepository.save(transaction);
     }
 
 }
