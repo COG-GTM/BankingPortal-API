@@ -204,6 +204,16 @@ public abstract class BaseTest {
         return userDetails;
     }
 
+    protected HashMap<String, String> createAndLoginUserWithBalanceViaService(double amount) throws Exception {
+        val userDetails = createAndLoginUser();
+        val accountNumber = userDetails.get("accountNumber");
+        val pin = getRandomPin();
+        accountService.createPin(accountNumber, userDetails.get("password"), pin);
+        accountService.cashDeposit(accountNumber, pin, amount);
+        userDetails.put("pin", pin);
+        return userDetails;
+    }
+
     protected HashMap<String, String> createAccount() {
         val accountDetails = new HashMap<String, String>();
         val user = createUser();

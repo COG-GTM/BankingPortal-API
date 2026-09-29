@@ -9,6 +9,7 @@ import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
 import com.webapp.bankingportal.service.AccountService;
+import com.webapp.bankingportal.service.IdempotencyService;
 import com.webapp.bankingportal.service.TransactionService;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
@@ -24,6 +25,7 @@ public class AccountController {
 
     private final AccountService accountService;
     private final TransactionService transactionService;
+    private final IdempotencyService idempotencyService;
 
     @GetMapping("/pin/check")
     public ResponseEntity<String> checkAccountPIN() {
@@ -80,15 +82,24 @@ public class AccountController {
     }
 
     @PostMapping("/fund-transfer")
-    @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/fund-transfer' + ':' + (#fundTransferRequest).hashCode()")
-    public ResponseEntity<String> fundTransfer(@RequestBody FundTransferRequest fundTransferRequest) {
-        accountService.fundTransfer(
-                LoggedinUser.getAccountNumber(),
+    public ResponseEntity<String> fundTransfer(
+            @RequestHeader(value = IdempotencyService.IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
+            @RequestBody FundTransferRequest fundTransferRequest) {
+        val accountNumber = LoggedinUser.getAccountNumber();
+        val requestHash = idempotencyService.hashRequest(
+                "/api/account/fund-transfer",
                 fundTransferRequest.targetAccountNumber(),
-                fundTransferRequest.pin(),
-                fundTransferRequest.amount());
+                String.valueOf(fundTransferRequest.amount()));
 
-        return ResponseEntity.ok(ApiMessages.CASH_TRANSFER_SUCCESS.getMessage());
+        return idempotencyService.execute(accountNumber, idempotencyKey, requestHash, () -> {
+            accountService.fundTransfer(
+                    accountNumber,
+                    fundTransferRequest.targetAccountNumber(),
+                    fundTransferRequest.pin(),
+                    fundTransferRequest.amount());
+
+            return ResponseEntity.ok(ApiMessages.CASH_TRANSFER_SUCCESS.getMessage());
+        });
     }
 
     @GetMapping("/transactions")

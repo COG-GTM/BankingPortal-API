@@ -12,6 +12,10 @@ spring.jpa.hibernate.ddl-auto=update
 spring.main.allow-circular-references=true
 server.error.include-message=always
 
+# Idempotency-Key retention for fund transfers (ISO-8601 durations)
+idempotency.ttl=PT24H
+idempotency.purge-interval=PT1H
+
 # JWT
 jwt.secret=your-secret-key
 # Token expiration time in milliseconds (e.g., 24 hours)
