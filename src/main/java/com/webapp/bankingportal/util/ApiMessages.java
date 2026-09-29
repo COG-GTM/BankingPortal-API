@@ -21,6 +21,7 @@ public enum ApiMessages {
     IDENTIFIER_MISSING_ERROR("Missing identifier"),
     OTP_GENERATION_LIMIT_EXCEEDED("OTP generation limit exceeded. Please try again after %d minutes"),
     OTP_INVALID_ERROR("Invalid OTP"),
+    OTP_VERIFICATION_LIMIT_EXCEEDED("Too many invalid OTP attempts. Please request a new OTP"),
     OTP_MISSING_ERROR("Missing OTP"),
     OTP_SENT_FAILURE("{\"message\": \"Failed to send OTP to: %s\"}"),
     OTP_SENT_SUCCESS("{\"message\": \"OTP sent successfully to: %s\"}"),
