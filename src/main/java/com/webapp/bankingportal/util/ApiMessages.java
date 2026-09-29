@@ -15,6 +15,7 @@ public enum ApiMessages {
     CASH_TRANSFER_SAME_ACCOUNT_ERROR("Source and target account cannot be the same"),
     CASH_TRANSFER_SUCCESS("{\"msg\": \"Fund transferred successfully\"}"),
     CASH_WITHDRAWAL_SUCCESS("{\"msg\": \"Cash withdrawn successfully\"}"),
+    DAILY_TRANSFER_LIMIT_EXCEEDED_ERROR("Daily transfer limit of %.2f exceeded. Remaining limit for today: %.2f"),
     EMAIL_SUBJECT_LOGIN("New login to OneStopBank"),
     EMAIL_SUBJECT_OTP("OTP Verification"),
     GEOLOCATION_FAILED("Failed to get geolocation for IP: %s"),

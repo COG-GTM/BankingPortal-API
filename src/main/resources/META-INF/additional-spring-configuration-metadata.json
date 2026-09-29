@@ -29,6 +29,18 @@
             "name": "geo.api.key",
             "type": "java.lang.String",
             "description": "Geolocation API key"
+        },
+        {
+            "name": "banking.transfer.daily-limit",
+            "type": "java.lang.Double",
+            "description": "Default maximum total amount an account may transfer out per calendar day",
+            "defaultValue": 200000
+        },
+        {
+            "name": "banking.transfer.zone",
+            "type": "java.time.ZoneId",
+            "description": "Time zone used to determine calendar-day boundaries for the daily transfer limit",
+            "defaultValue": "UTC"
         }
     ]
 }

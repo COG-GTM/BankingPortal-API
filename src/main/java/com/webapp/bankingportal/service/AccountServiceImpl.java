@@ -36,6 +36,8 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+    @Autowired
+    private final TransactionService transactionService;
 
     @Override
     public Account createAccount(User user) {
@@ -216,6 +218,8 @@ public class AccountServiceImpl implements AccountService {
         }
 
         val sourceAccount = accountRepository.findByAccountNumber(sourceAccountNumber);
+        transactionService.validateDailyTransferLimit(sourceAccount, amount);
+
         val sourceBalance = sourceAccount.getBalance();
         if (sourceBalance < amount) {
             throw new InsufficientBalanceException(ApiMessages.BALANCE_INSUFFICIENT_ERROR.getMessage());

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.webapp.bankingportal.exception.DailyTransferLimitExceededException;
 import com.webapp.bankingportal.exception.InsufficientBalanceException;
 import com.webapp.bankingportal.exception.InvalidAmountException;
 import com.webapp.bankingportal.exception.InvalidPinException;
@@ -330,6 +331,30 @@ public class AccountServiceTests extends BaseTest {
             accountService.fundTransfer(sourceAccountDetails.get("accountNumber"),
                     targetAccountDetails.get("accountNumber"), sourceAccountDetails.get("pin"), 1000.0);
         });
+    }
+
+    @Test
+    public void test_transfer_funds_enforces_daily_limit() {
+        val sourceAccountDetails = createAccountWithInitialBalance(2000.0);
+        val sourceAccountNumber = sourceAccountDetails.get("accountNumber");
+        val targetAccountNumber = createAccount().get("accountNumber");
+        val pin = sourceAccountDetails.get("pin");
+
+        val source = accountRepository.findByAccountNumber(sourceAccountNumber);
+        source.setDailyTransferLimit(1000.0);
+        accountRepository.save(source);
+
+        accountService.fundTransfer(sourceAccountNumber, targetAccountNumber, pin, 600.0);
+        accountService.fundTransfer(sourceAccountNumber, targetAccountNumber, pin, 400.0);
+
+        Assertions.assertThrows(DailyTransferLimitExceededException.class, () -> {
+            accountService.fundTransfer(sourceAccountNumber, targetAccountNumber, pin, 100.0);
+        });
+
+        Assertions.assertEquals(1000.0,
+                accountRepository.findByAccountNumber(sourceAccountNumber).getBalance(), 0.01);
+        Assertions.assertEquals(1000.0,
+                accountRepository.findByAccountNumber(targetAccountNumber).getBalance(), 0.01);
     }
 
 }

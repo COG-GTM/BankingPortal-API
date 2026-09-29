@@ -30,3 +30,10 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 # Geolocation API
 geo.api.url=https://api.findip.net/
 geo.api.key=your-api-key
+
+# Fund transfer limits
+# Default maximum total amount each account may transfer out per calendar day
+# (overridable per account via the account.daily_transfer_limit column)
+banking.transfer.daily-limit=200000
+# Time zone that defines the calendar-day window for the daily limit
+banking.transfer.zone=UTC

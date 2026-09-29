@@ -14,6 +14,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
 @Entity
@@ -36,6 +37,13 @@ public class Account {
     private String branch = "NIT";
     private String ifscCode = "NIT001";
     private String Pin;
+
+    /**
+     * Per-account daily transfer limit override. When null, the configured
+     * {@code banking.transfer.daily-limit} applies.
+     */
+    @Positive
+    private Double dailyTransferLimit;
 
     @NotNull
     @OneToOne
