@@ -1,3 +1,4 @@
+import { getCountries, isValidPhoneNumber as isValidPhone, type CountryCode } from 'libphonenumber-js/max';
 import type { AccountResponse, TransactionDTO, TransactionType, UserResponse } from '@/api/types';
 import { EXTERNAL_ACCOUNT, MOCK_OTP, SEED_USERS, janeHistory, type SeedUser } from './fixtures';
 import { ApiMessages, format } from './messages';
@@ -49,7 +50,7 @@ interface MockState {
   idempotency: Map<string, string>;
   revokedTokens: Set<string>;
   resetTokens: Map<string, string>;
-  otpAttempts: Map<string, number>;
+  otpAttempts: Map<string, { count: number; limitReachedAt: number | null }>;
 }
 
 const DAY = 86_400_000;
@@ -330,24 +331,15 @@ export interface UserInput {
   address?: string | null;
 }
 
-const REGIONS = new Set(
-  'AE AR AT AU BD BE BR CA CH CL CN CO CZ DE DK EG ES FI FR GB GH GR HK HU ID IE IL IN IT JP KE KR LK MX MY NG NL NO NP NZ PE PH PK PL PT QA RO RU SA SE SG TH TR TW UA US VN ZA'.split(' '),
-);
+/** libphonenumber's supported regions, same source as ValidationUtil#isValidCountryCode. */
+const REGIONS = new Set<string>(getCountries());
 
-/** Approximation of libphonenumber isValidNumber for the common regions. */
+/** ValidationUtil#isValidPhoneNumber equivalent (libphonenumber metadata). */
 function isValidPhoneNumber(phone: string, region: string): boolean {
-  const digits = phone.replace(/[\s\-().]/g, '').replace(/^\+/, '');
-  if (!/^\d+$/.test(digits)) return false;
-  switch (region) {
-    case 'US':
-    case 'CA':
-      return /^1?[2-9]\d{2}[2-9]\d{6}$/.test(digits);
-    case 'IN':
-      return /^(91)?[6-9]\d{9}$/.test(digits);
-    case 'GB':
-      return /^(44)?0?\d{10}$/.test(digits);
-    default:
-      return digits.length >= 6 && digits.length <= 15;
+  try {
+    return isValidPhone(phone, region as CountryCode);
+  } catch {
+    return false;
   }
 }
 
@@ -428,6 +420,10 @@ export function updateUser(accountNumber: string, input: UserInput | null): Mock
   validateUserDetails(input);
   const clash = findByEmail(input.email);
   if (clash && clash !== user) throw serverError(`Duplicate entry '${input.email}' for key 'user.email'`);
+  const phoneClash = state.users.find((u) => u.phoneNumber === input.phoneNumber);
+  if (phoneClash && phoneClash !== user) {
+    throw serverError(`Duplicate entry '${input.phoneNumber}' for key 'user.phone_number'`);
+  }
   Object.assign(user, {
     name: input.name,
     email: input.email,
@@ -442,15 +438,23 @@ export function updateUser(accountNumber: string, input: UserInput | null): Mock
 // OTP + password reset (OtpServiceImpl / AuthServiceImpl)
 // ---------------------------------------------------------------------------
 
-/** Three sends per account, then "OTP generation limit exceeded" (reset with resetMockDb). */
-export function generateOtp(identifier: unknown): MockUser {
+/** Three sends per account, then "OTP generation limit exceeded" until the 10-minute wait has passed. */
+export function generateOtp(identifier: unknown, now = Date.now()): MockUser {
   const user = getUserByIdentifier(identifier);
   const acc = user.account.accountNumber;
-  const attempts = state.otpAttempts.get(acc) ?? 0;
-  if (attempts >= OTP_ATTEMPTS_LIMIT) {
-    throw badRequest(format(ApiMessages.OTP_GENERATION_LIMIT_EXCEEDED, OTP_RESET_WAITING_TIME_MINUTES));
+  const entry = state.otpAttempts.get(acc) ?? { count: 0, limitReachedAt: null };
+  if (entry.count >= OTP_ATTEMPTS_LIMIT) {
+    const waitMs = OTP_RESET_WAITING_TIME_MINUTES * 60_000;
+    if (entry.limitReachedAt != null && now - entry.limitReachedAt > waitMs) {
+      entry.count = 0;
+      entry.limitReachedAt = null;
+    } else {
+      throw badRequest(format(ApiMessages.OTP_GENERATION_LIMIT_EXCEEDED, OTP_RESET_WAITING_TIME_MINUTES));
+    }
   }
-  state.otpAttempts.set(acc, attempts + 1);
+  entry.count += 1;
+  if (entry.count >= OTP_ATTEMPTS_LIMIT) entry.limitReachedAt = now;
+  state.otpAttempts.set(acc, entry);
   console.info(`[mock] OTP for ${user.email} (${acc}) is ${MOCK_OTP} — any 6 digits are accepted.`);
   return user;
 }

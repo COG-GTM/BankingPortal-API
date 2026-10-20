@@ -15,7 +15,7 @@ export function Field({ label, children, error, hint, className }: FieldProps) {
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
-  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined;
+  const describedBy = [hint && !error ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined;
   const control = isValidElement<Record<string, unknown>>(children)
     ? cloneElement(children, { id, 'aria-describedby': describedBy, invalid: Boolean(error) })
     : children;

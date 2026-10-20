@@ -21,7 +21,7 @@ export function MoneyText({ amount, sign, className, ...rest }: MoneyTextProps) 
       {...rest}
     >
       {prefix}
-      {formatMoney(Math.abs(amount))}
+      {formatMoney(sign ? Math.abs(amount) : amount)}
     </span>
   );
 }

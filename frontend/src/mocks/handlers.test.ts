@@ -148,3 +148,21 @@ describe('otp + session', () => {
     expect(getMockState().revokedTokens.has(token)).toBe(true);
   });
 });
+
+describe('profile + otp limits', () => {
+  it('rejects a profile update that reuses another user\'s phone number', async () => {
+    await signInAs(jane);
+    const { updateUser } = await import('@/api/endpoints');
+    const body = { name: jane.name, email: jane.email, password: jane.password, countryCode: 'US', phoneNumber: john.phoneNumber, address: jane.address };
+    expect(await err(updateUser(body))).toMatchObject({ status: 500 });
+    await expect(updateUser({ ...body, phoneNumber: jane.phoneNumber })).resolves.toMatchObject({ phoneNumber: jane.phoneNumber });
+  });
+
+  it('locks OTP sends after 3 and unlocks after the 10-minute wait', async () => {
+    const { generateOtp: send } = await import('./db');
+    const t0 = 1_000_000;
+    for (let i = 0; i < 3; i++) send(jane.email, t0 + i);
+    expect(() => send(jane.email, t0 + 5 * 60_000)).toThrow(/OTP generation limit exceeded/);
+    expect(() => send(jane.email, t0 + 11 * 60_000)).not.toThrow();
+  });
+});
