@@ -166,4 +166,11 @@ describe('profile + otp limits', () => {
     expect(() => send(jane.email, t0 + 12 * 60_000)).toThrow(/OTP generation limit exceeded/);
     expect(() => send(jane.email, t0 + 16 * 60_000)).not.toThrow();
   });
+
+  it('allows a new OTP once the last one is older than the 15-minute retry window', async () => {
+    const { generateOtp: send } = await import('./db');
+    const t0 = 1_000_000;
+    for (let i = 0; i < 3; i++) send(john.email, t0 + i);
+    expect(() => send(john.email, t0 + 16 * 60_000)).not.toThrow();
+  });
 });

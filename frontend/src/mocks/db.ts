@@ -50,12 +50,13 @@ interface MockState {
   idempotency: Map<string, string>;
   revokedTokens: Set<string>;
   resetTokens: Map<string, string>;
-  otpAttempts: Map<string, { count: number; limitReachedAt: number | null }>;
+  otpAttempts: Map<string, { count: number; limitReachedAt: number | null; lastGeneratedAt: number }>;
 }
 
 const DAY = 86_400_000;
 const OTP_ATTEMPTS_LIMIT = 3;
 const OTP_RESET_WAITING_TIME_MINUTES = 10;
+const OTP_RETRY_LIMIT_WINDOW_MINUTES = 15;
 
 let state: MockState = createState();
 
@@ -438,25 +439,27 @@ export function updateUser(accountNumber: string, input: UserInput | null): Mock
 // OTP + password reset (OtpServiceImpl / AuthServiceImpl)
 // ---------------------------------------------------------------------------
 
-/** Three sends per account, then "OTP generation limit exceeded" until the 10-minute wait has passed. */
+/**
+ * OtpServiceImpl#validateOtpWithinRetryLimit: after three sends, requests are rejected while the last OTP is
+ * younger than 15 minutes; the 10-minute wait starts at the first rejection and resets attempts once it passes.
+ */
 export function generateOtp(identifier: unknown, now = Date.now()): MockUser {
   const user = getUserByIdentifier(identifier);
   const acc = user.account.accountNumber;
-  const entry = state.otpAttempts.get(acc) ?? { count: 0, limitReachedAt: null };
+  const entry = state.otpAttempts.get(acc) ?? { count: 0, limitReachedAt: null, lastGeneratedAt: 0 };
+  state.otpAttempts.set(acc, entry);
   if (entry.count >= OTP_ATTEMPTS_LIMIT) {
-    const waitMs = OTP_RESET_WAITING_TIME_MINUTES * 60_000;
-    if (entry.limitReachedAt != null && now - entry.limitReachedAt > waitMs) {
+    if (entry.limitReachedAt != null && now - entry.limitReachedAt > OTP_RESET_WAITING_TIME_MINUTES * 60_000) {
       entry.count = 0;
       entry.limitReachedAt = null;
-    } else {
-      // OtpServiceImpl starts the wait at the first rejected request.
+    } else if (now - entry.lastGeneratedAt < OTP_RETRY_LIMIT_WINDOW_MINUTES * 60_000) {
       entry.limitReachedAt ??= now;
-      state.otpAttempts.set(acc, entry);
-      throw badRequest(format(ApiMessages.OTP_GENERATION_LIMIT_EXCEEDED, OTP_RESET_WAITING_TIME_MINUTES));
+      const waited = Math.floor((now - entry.limitReachedAt) / 60_000);
+      throw badRequest(format(ApiMessages.OTP_GENERATION_LIMIT_EXCEEDED, OTP_RESET_WAITING_TIME_MINUTES - waited));
     }
   }
   entry.count += 1;
-  state.otpAttempts.set(acc, entry);
+  entry.lastGeneratedAt = now;
   console.info(`[mock] OTP for ${user.email} (${acc}) is ${MOCK_OTP} — any 6 digits are accepted.`);
   return user;
 }
