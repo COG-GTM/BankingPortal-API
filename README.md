@@ -19,6 +19,12 @@
 
 The Banking Portal API provides a set of endpoints for managing user accounts, fund transfers, and transactions. This project aims to facilitate secure and efficient banking operations for users.
 
+## Web frontend
+
+A React + TypeScript web app (OneStopBank) lives in [`frontend/`](frontend/). It runs against an in-browser mock API by
+default (`cd frontend && npm ci && npm run dev`) or against this API on port 8180 with `VITE_API_MODE=live`.
+See [frontend/README.md](frontend/README.md) for modes, seeded credentials and API quirks.
+
 ## Features
 
 - User Registration: Users can register by providing their details, such as name, email, address, and phone number.
