@@ -449,11 +449,13 @@ export function generateOtp(identifier: unknown, now = Date.now()): MockUser {
       entry.count = 0;
       entry.limitReachedAt = null;
     } else {
+      // OtpServiceImpl starts the wait at the first rejected request.
+      entry.limitReachedAt ??= now;
+      state.otpAttempts.set(acc, entry);
       throw badRequest(format(ApiMessages.OTP_GENERATION_LIMIT_EXCEEDED, OTP_RESET_WAITING_TIME_MINUTES));
     }
   }
   entry.count += 1;
-  if (entry.count >= OTP_ATTEMPTS_LIMIT) entry.limitReachedAt = now;
   state.otpAttempts.set(acc, entry);
   console.info(`[mock] OTP for ${user.email} (${acc}) is ${MOCK_OTP} — any 6 digits are accepted.`);
   return user;

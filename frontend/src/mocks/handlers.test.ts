@@ -158,11 +158,12 @@ describe('profile + otp limits', () => {
     await expect(updateUser({ ...body, phoneNumber: jane.phoneNumber })).resolves.toMatchObject({ phoneNumber: jane.phoneNumber });
   });
 
-  it('locks OTP sends after 3 and unlocks after the 10-minute wait', async () => {
+  it('locks OTP sends after 3 and unlocks 10 minutes after the first rejection', async () => {
     const { generateOtp: send } = await import('./db');
     const t0 = 1_000_000;
     for (let i = 0; i < 3; i++) send(jane.email, t0 + i);
     expect(() => send(jane.email, t0 + 5 * 60_000)).toThrow(/OTP generation limit exceeded/);
-    expect(() => send(jane.email, t0 + 11 * 60_000)).not.toThrow();
+    expect(() => send(jane.email, t0 + 12 * 60_000)).toThrow(/OTP generation limit exceeded/);
+    expect(() => send(jane.email, t0 + 16 * 60_000)).not.toThrow();
   });
 });
