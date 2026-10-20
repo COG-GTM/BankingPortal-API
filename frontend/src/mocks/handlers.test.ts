@@ -15,6 +15,7 @@ import {
   withdraw,
 } from '@/api/endpoints';
 import { tokenStore } from '@/api/token';
+import { directionFor } from '@/api/transactions';
 import { SEED_USERS } from './fixtures';
 import { getMockState } from './db';
 
@@ -107,18 +108,35 @@ describe('account rules', () => {
     expect(await balance()).toBe(47_100);
   });
 
-  it('transfer debits the source, credits the target, and writes CASH_TRANSFER + CASH_CREDIT rows', async () => {
+  it('transfer debits the source, credits the target, and writes ONE shared CASH_TRANSFER row', async () => {
+    const before = getMockState().transactions.length;
     await expect(fundTransfer({ targetAccountNumber: john.accountNumber, amount: 1_000, pin: jane.pin })).resolves.toEqual({
       msg: 'Fund transferred successfully',
     });
+    expect(getMockState().transactions).toHaveLength(before + 1);
     expect(await balance()).toBe(47_200);
     const [mine] = await getTransactions();
-    expect(mine).toMatchObject({ transactionType: 'CASH_TRANSFER', amount: 1_000, targetAccountNumber: john.accountNumber });
+    expect(mine).toMatchObject({
+      transactionType: 'CASH_TRANSFER',
+      amount: 1_000,
+      sourceAccountNumber: jane.accountNumber,
+      targetAccountNumber: john.accountNumber,
+    });
+    expect(directionFor(mine!, jane.accountNumber)).toBe('debit');
 
     await signInAs(john);
     expect(await balance()).toBe(john.balance + 1_000);
     const [theirs] = await getTransactions();
-    expect(theirs).toMatchObject({ transactionType: 'CASH_CREDIT', amount: 1_000, sourceAccountNumber: jane.accountNumber });
+    expect(theirs).toEqual(mine);
+    expect(directionFor(theirs!, john.accountNumber)).toBe('credit');
+  });
+
+  it('never generates CASH_CREDIT rows and shows seeded transfers to both parties', async () => {
+    expect(getMockState().transactions.some((t) => t.transactionType === 'CASH_CREDIT')).toBe(false);
+    await signInAs(john);
+    const johns = await getTransactions();
+    expect(johns.length).toBeGreaterThan(0);
+    expect(johns.every((t) => t.transactionType === 'CASH_TRANSFER' && t.targetAccountNumber === john.accountNumber)).toBe(true);
   });
 
   it('rejects transfers to self (400) and to unknown accounts (404)', async () => {

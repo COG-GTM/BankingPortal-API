@@ -46,7 +46,7 @@ In mock mode `window.__resetMockDb()` restores the seed data from the browser co
 | Jane Doe   | `jane@demo.bank` / `7F3K9Q`   | `Demo@1234` | `7F3K9Q` | `1234`   | $48,200.00 |
 | John Smith | `john@demo.bank` / `2M8PLX`   | `Demo@1234` | `2M8PLX` | _none_   | $6,400.00  |
 
-- Jane has 40 transactions over the last 90 days (deposits, withdrawals, transfers to John, credits from `9QW2RT`).
+- Jane has 40 transactions over the last 90 days (deposits, withdrawals, transfers to John, incoming transfers from `9QW2RT`); the transfers to John also appear in John's history.
 - John has no PIN, so every money movement returns `401 PIN has not been created for this account` until a PIN is created.
 - OTP: any 6 digits are accepted. The "sent" OTP `123456` is logged to the browser console. Three sends per account,
   then `OTP generation limit exceeded...` (same as the backend).
@@ -97,8 +97,10 @@ Rules for Wave 2:
   `account + endpoint + request body`. Repeating an identical request returns the cached success **without** moving
   money again (the mock sets `X-Mock-Idempotent-Replay: true`). Failures are not cached.
   Two genuine identical withdrawals in a row therefore count once; the UI should tell the user.
-- **Transfers** create a `CASH_TRANSFER` row in the sender's history and a `CASH_CREDIT` row in the receiver's.
-  Deposits/withdrawals use target account `N/A`.
+- **Transfers** create ONE `CASH_TRANSFER` row (source → target). `/account/transactions` returns rows where the
+  account is the source OR the target, so the same row (same `id`) shows up in both histories. The backend never writes
+  `CASH_CREDIT` rows. Use `directionFor(tx, myAccountNumber)` from `@/api` to show it as a debit for the sender and a
+  credit for the recipient. Deposits/withdrawals use target account `N/A`.
 - **`GET /account/pin/check`** returns a sentence; `checkPin()`/`usePinStatus()` map it to a boolean
   (`"PIN has been created"`).
 - **`GET /users/logout`** answers with a redirect. `logout()` treats any 2xx/3xx/opaque redirect as success and always

@@ -1,5 +1,5 @@
 import { getCountries, isValidPhoneNumber as isValidPhone, type CountryCode } from 'libphonenumber-js/max';
-import type { AccountResponse, TransactionDTO, TransactionType, UserResponse } from '@/api/types';
+import type { AccountResponse, TransactionDTO, UserResponse } from '@/api/types';
 import { EXTERNAL_ACCOUNT, MOCK_OTP, SEED_USERS, janeHistory, type SeedUser } from './fixtures';
 import { ApiMessages, format } from './messages';
 
@@ -37,10 +37,8 @@ export interface MockUser {
   account: MockAccount;
 }
 
-/** Each row belongs to one account's history (`owner`). */
-interface MockTxn extends TransactionDTO {
-  owner: string;
-}
+/** One row per transaction; a transfer row appears in both the source's and the target's history. */
+type MockTxn = TransactionDTO;
 
 interface MockState {
   users: MockUser[];
@@ -89,14 +87,11 @@ function createState(now = Date.now()): MockState {
     const transactionDate = day.getTime();
     const base = { amount: t.amount, transactionDate };
     if (t.type === 'CASH_TRANSFER') {
-      const target = t.counterparty ?? john;
-      rows.push({ ...base, transactionType: 'CASH_TRANSFER', sourceAccountNumber: jane, targetAccountNumber: target, owner: jane });
-      rows.push({ ...base, transactionType: 'CASH_CREDIT', sourceAccountNumber: jane, targetAccountNumber: target, owner: target });
-    } else if (t.type === 'CASH_CREDIT') {
-      const source = t.counterparty ?? EXTERNAL_ACCOUNT;
-      rows.push({ ...base, transactionType: 'CASH_CREDIT', sourceAccountNumber: source, targetAccountNumber: jane, owner: jane });
+      rows.push({ ...base, transactionType: 'CASH_TRANSFER', sourceAccountNumber: jane, targetAccountNumber: t.counterparty ?? john });
+    } else if (t.type === 'TRANSFER_IN') {
+      rows.push({ ...base, transactionType: 'CASH_TRANSFER', sourceAccountNumber: t.counterparty ?? EXTERNAL_ACCOUNT, targetAccountNumber: jane });
     } else {
-      rows.push({ ...base, transactionType: t.type, sourceAccountNumber: jane, targetAccountNumber: 'N/A', owner: jane });
+      rows.push({ ...base, transactionType: t.type, sourceAccountNumber: jane, targetAccountNumber: 'N/A' });
     }
   }
   rows.sort((a, b) => a.transactionDate - b.transactionDate);
@@ -158,12 +153,12 @@ export function toAccountResponse(u: MockUser): AccountResponse {
   return { accountNumber, balance, accountType, branch, ifscCode };
 }
 
-/** TransactionServiceImpl: this account's rows, newest first. */
+/** TransactionServiceImpl: rows where this account is the source OR the target, newest first. */
 export function listTransactions(accountNumber: string): TransactionDTO[] {
   return state.transactions
-    .filter((t) => t.owner === accountNumber)
+    .filter((t) => t.sourceAccountNumber === accountNumber || t.targetAccountNumber === accountNumber)
     .sort((a, b) => b.transactionDate - a.transactionDate || b.id - a.id)
-    .map(({ owner: _owner, ...dto }) => dto);
+    .map((t) => ({ ...t }));
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +286,7 @@ export function cashDeposit(accountNumber: string, pin: string | null, amount: n
   validatePin(accountNumber, pin);
   validateAmount(amount);
   account(accountNumber).balance += amount;
-  addTxn({ amount, transactionType: 'CASH_DEPOSIT', sourceAccountNumber: accountNumber, targetAccountNumber: 'N/A', owner: accountNumber });
+  addTxn({ amount, transactionType: 'CASH_DEPOSIT', sourceAccountNumber: accountNumber, targetAccountNumber: 'N/A' });
 }
 
 export function cashWithdrawal(accountNumber: string, pin: string | null, amount: number) {
@@ -300,7 +295,7 @@ export function cashWithdrawal(accountNumber: string, pin: string | null, amount
   const acc = account(accountNumber);
   if (acc.balance < amount) throw badRequest(ApiMessages.BALANCE_INSUFFICIENT_ERROR);
   acc.balance -= amount;
-  addTxn({ amount, transactionType: 'CASH_WITHDRAWAL', sourceAccountNumber: accountNumber, targetAccountNumber: 'N/A', owner: accountNumber });
+  addTxn({ amount, transactionType: 'CASH_WITHDRAWAL', sourceAccountNumber: accountNumber, targetAccountNumber: 'N/A' });
 }
 
 export function fundTransfer(source: string, target: string | null, pin: string | null, amount: number) {
@@ -314,9 +309,7 @@ export function fundTransfer(source: string, target: string | null, pin: string 
   src.balance -= amount;
   targetUser.account.balance += amount;
   const t = targetUser.account.accountNumber;
-  const type: TransactionType = 'CASH_TRANSFER';
-  addTxn({ amount, transactionType: type, sourceAccountNumber: source, targetAccountNumber: t, owner: source });
-  addTxn({ amount, transactionType: 'CASH_CREDIT', sourceAccountNumber: source, targetAccountNumber: t, owner: t });
+  addTxn({ amount, transactionType: 'CASH_TRANSFER', sourceAccountNumber: source, targetAccountNumber: t });
 }
 
 // ---------------------------------------------------------------------------

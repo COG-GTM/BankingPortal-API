@@ -1,4 +1,3 @@
-import type { TransactionType } from '@/api/types';
 
 export const MOCK_OTP = '123456';
 
@@ -43,12 +42,15 @@ export const SEED_USERS = {
 /** A closed external account that only appears as the sender of historical credits. */
 export const EXTERNAL_ACCOUNT = '9QW2RT';
 
+/** `TRANSFER_IN` is a CASH_TRANSFER from `counterparty` into Jane's account (the backend has no separate credit row). */
+export type SeedKind = 'CASH_DEPOSIT' | 'CASH_WITHDRAWAL' | 'CASH_TRANSFER' | 'TRANSFER_IN';
+
 export interface SeedTxn {
   daysAgo: number;
   hour: number;
-  type: TransactionType;
+  type: SeedKind;
   amount: number;
-  /** Counterparty for transfers / credits. */
+  /** Other account for transfers (target for CASH_TRANSFER, source for TRANSFER_IN). */
   counterparty?: string;
 }
 
@@ -65,7 +67,7 @@ function mulberry32(seed: number) {
 
 /**
  * 40 deterministic transactions for Jane over the last 90 days. The four most recent match the
- * scope wireframe (deposit 5,000 / transfer 1,200 to 2M8PLX / credit 800 from 9QW2RT / withdrawal 300).
+ * scope wireframe (deposit 5,000 / transfer 1,200 to 2M8PLX / incoming transfer 800 from 9QW2RT / withdrawal 300).
  */
 export function janeHistory(): SeedTxn[] {
   const rand = mulberry32(20261020);
@@ -73,23 +75,23 @@ export function janeHistory(): SeedTxn[] {
   const txns: SeedTxn[] = [
     { daysAgo: 2, hour: 10, type: 'CASH_DEPOSIT', amount: 5_000 },
     { daysAgo: 4, hour: 15, type: 'CASH_TRANSFER', amount: 1_200, counterparty: SEED_USERS.john.accountNumber },
-    { daysAgo: 6, hour: 9, type: 'CASH_CREDIT', amount: 800, counterparty: EXTERNAL_ACCOUNT },
+    { daysAgo: 6, hour: 9, type: 'TRANSFER_IN', amount: 800, counterparty: EXTERNAL_ACCOUNT },
     { daysAgo: 8, hour: 18, type: 'CASH_WITHDRAWAL', amount: 300 },
   ];
-  const types: TransactionType[] = [
+  const types: SeedKind[] = [
     'CASH_DEPOSIT',
     'CASH_WITHDRAWAL',
     'CASH_WITHDRAWAL',
     'CASH_TRANSFER',
-    'CASH_CREDIT',
+    'TRANSFER_IN',
     'CASH_WITHDRAWAL',
     'CASH_DEPOSIT',
     'CASH_TRANSFER',
-    'CASH_CREDIT',
+    'TRANSFER_IN',
   ];
   for (let i = 0; i < 36; i++) {
     const daysAgo = 9 + Math.floor((i * 81) / 36 + rand() * 2);
-    const type = types[i % types.length] as TransactionType;
+    const type = types[i % types.length] as SeedKind;
     const hour = 8 + Math.floor(rand() * 11);
     switch (type) {
       case 'CASH_DEPOSIT':
@@ -101,7 +103,7 @@ export function janeHistory(): SeedTxn[] {
       case 'CASH_TRANSFER':
         txns.push({ daysAgo, hour, type, amount: pick(200, 2_500), counterparty: SEED_USERS.john.accountNumber });
         break;
-      case 'CASH_CREDIT':
+      case 'TRANSFER_IN':
         txns.push({ daysAgo, hour, type, amount: pick(300, 3_000), counterparty: EXTERNAL_ACCOUNT });
         break;
     }
