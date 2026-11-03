@@ -159,4 +159,18 @@ public class TokenServiceImpl implements TokenService {
         }
     }
 
+    @Override
+    @Transactional
+    public void invalidateAllTokens(String accountNumber) {
+        val revoked = tokenRepository.deleteAllByAccountNumber(accountNumber);
+        log.info("Revoked {} session token(s) for account: {}", revoked, accountNumber);
+    }
+
+    @Override
+    @Transactional
+    public void invalidateOtherTokens(String accountNumber, String currentToken) {
+        val revoked = tokenRepository.deleteAllByAccountNumberExceptToken(accountNumber, currentToken);
+        log.info("Revoked {} other session token(s) for account: {}", revoked, accountNumber);
+    }
+
 }

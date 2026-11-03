@@ -9,6 +9,7 @@ import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
 import com.webapp.bankingportal.dto.PinUpdateRequest;
 import com.webapp.bankingportal.service.AccountService;
+import com.webapp.bankingportal.service.TokenService;
 import com.webapp.bankingportal.service.TransactionService;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
@@ -24,6 +25,7 @@ public class AccountController {
 
     private final AccountService accountService;
     private final TransactionService transactionService;
+    private final TokenService tokenService;
 
     @GetMapping("/pin/check")
     public ResponseEntity<String> checkAccountPIN() {
@@ -47,12 +49,15 @@ public class AccountController {
 
     @PostMapping("/pin/update")
     @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/pin/update' + ':' + (#pinUpdateRequest).hashCode()")
-    public ResponseEntity<String> updatePIN(@RequestBody PinUpdateRequest pinUpdateRequest) {
+    public ResponseEntity<String> updatePIN(@RequestBody PinUpdateRequest pinUpdateRequest,
+            @RequestHeader("Authorization") String authorization) {
+        val accountNumber = LoggedinUser.getAccountNumber();
         accountService.updatePin(
-                LoggedinUser.getAccountNumber(),
+                accountNumber,
                 pinUpdateRequest.oldPin(),
                 pinUpdateRequest.password(),
                 pinUpdateRequest.newPin());
+        tokenService.invalidateOtherTokens(accountNumber, authorization.substring(7));
 
         return ResponseEntity.ok(ApiMessages.PIN_UPDATE_SUCCESS.getMessage());
     }

@@ -98,9 +98,12 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public boolean resetPassword(User user, String newPassword) {
+        ValidationUtil.validatePassword(newPassword);
+
         try {
             user.setPassword(passwordEncoder.encode(newPassword));
             userRepository.save(user);
+            tokenService.invalidateAllTokens(user.getAccount().getAccountNumber());
             return true;
         } catch (Exception e) {
             throw new PasswordResetException(ApiMessages.PASSWORD_RESET_FAILURE.getMessage(), e);
