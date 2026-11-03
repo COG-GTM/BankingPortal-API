@@ -15,6 +15,7 @@ import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.UserInvalidException;
 import com.webapp.bankingportal.repository.PasswordResetTokenRepository;
 import com.webapp.bankingportal.util.ApiMessages;
+import com.webapp.bankingportal.util.ValidationUtil;
 
 import lombok.RequiredArgsConstructor;
 import lombok.val;
@@ -90,6 +91,16 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public ResponseEntity<String> resetPassword(ResetPasswordRequest resetPasswordRequest) {
         val user = userService.getUserByIdentifier(resetPasswordRequest.identifier());
+
+        val newPassword = resetPasswordRequest.newPassword();
+        if (newPassword == null || newPassword.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiMessages.PASSWORD_EMPTY_ERROR.getMessage());
+        }
+        try {
+            ValidationUtil.validatePassword(newPassword);
+        } catch (UserInvalidException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
 
         if (!verifyPasswordResetToken(resetPasswordRequest.resetToken(), user)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiMessages.TOKEN_INVALID_ERROR.getMessage());

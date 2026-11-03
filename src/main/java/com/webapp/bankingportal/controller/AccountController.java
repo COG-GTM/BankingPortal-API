@@ -48,7 +48,7 @@ public class AccountController {
     }
 
     @PostMapping("/pin/update")
-    @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/pin/update' + ':' + (#pinUpdateRequest).hashCode()")
+    @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/pin/update' + ':' + (#pinUpdateRequest).hashCode() + ':' + (#authorization).hashCode()")
     public ResponseEntity<String> updatePIN(@RequestBody PinUpdateRequest pinUpdateRequest,
             @RequestHeader("Authorization") String authorization) {
         accountService.updatePin(
