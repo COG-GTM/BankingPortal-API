@@ -1,8 +1,8 @@
 package com.webapp.bankingportal.service;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.cache.CacheManager;
@@ -27,6 +27,8 @@ public class OtpServiceImpl implements OtpService {
     public static final int OTP_EXPIRY_MINUTES = 5;
     public static final int OTP_RESET_WAITING_TIME_MINUTES = 10;
     public static final int OTP_RETRY_LIMIT_WINDOW_MINUTES = 15;
+
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final CacheManager cacheManager;
     private final EmailService emailService;
@@ -134,8 +136,7 @@ public class OtpServiceImpl implements OtpService {
     }
 
     private String generateNewOTP(String accountNumber) {
-        val random = new Random();
-        val otpValue = 100_000 + random.nextInt(900_000);
+        val otpValue = 100_000 + RANDOM.nextInt(900_000);
         val otp = String.valueOf(otpValue);
 
         otpInfoRepository.save(new OtpInfo(accountNumber, otp, LocalDateTime.now()));
