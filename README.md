@@ -56,6 +56,13 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 
 ![project](https://github.com/abhi9720/BankingPortal-API/assets/68281476/45bca1e0-0af2-4d63-a8d0-efd7b67df6bf)
 
+## Session Revocation
+
+Sessions are JWTs persisted in the `token` table; a JWT is only accepted while its row exists.
+
+- `POST /api/auth/password-reset`: the new password must satisfy the password policy (8-127 chars, no whitespace, upper, lower, digit and special character), otherwise `400` with the policy message and the reset token is not consumed. On success **all** existing JWTs of the account are revoked (subsequent requests with them get `401`).
+- `POST /api/account/pin/update`: on success all **other** JWTs of the account are revoked; the token used for the request stays valid.
+
 ## Error Handling
 
 The API implements global exception handling for common error scenarios, such as account not found, unauthorized access, and insufficient balance.

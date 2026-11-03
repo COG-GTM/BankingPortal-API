@@ -96,11 +96,17 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = UserInvalidException.class)
     public boolean resetPassword(User user, String newPassword) {
+        if (newPassword == null || newPassword.isEmpty()) {
+            throw new UserInvalidException(ApiMessages.PASSWORD_EMPTY_ERROR.getMessage());
+        }
+        ValidationUtil.validatePassword(newPassword);
+
         try {
             user.setPassword(passwordEncoder.encode(newPassword));
             userRepository.save(user);
+            tokenService.invalidateAllTokens(user.getAccount());
             return true;
         } catch (Exception e) {
             throw new PasswordResetException(ApiMessages.PASSWORD_RESET_FAILURE.getMessage(), e);

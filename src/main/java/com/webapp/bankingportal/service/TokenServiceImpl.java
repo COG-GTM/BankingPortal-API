@@ -4,6 +4,7 @@ import static org.springframework.security.core.userdetails.User.withUsername;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.function.Function;
 
@@ -16,6 +17,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.webapp.bankingportal.entity.Account;
 import com.webapp.bankingportal.entity.Token;
 import com.webapp.bankingportal.exception.InvalidTokenException;
 import com.webapp.bankingportal.repository.AccountRepository;
@@ -157,6 +159,30 @@ public class TokenServiceImpl implements TokenService {
         if (tokenRepository.findByToken(token) != null) {
             tokenRepository.deleteByToken(token);
         }
+    }
+
+    @Override
+    @Transactional
+    public void invalidateAllTokens(Account account) {
+        deleteTokensOfAccount(account, null);
+    }
+
+    @Override
+    @Transactional
+    public void invalidateOtherTokens(String currentToken) {
+        val token = tokenRepository.findByToken(currentToken);
+        if (token != null) {
+            deleteTokensOfAccount(token.getAccount(), currentToken);
+        }
+    }
+
+    private void deleteTokensOfAccount(Account account, String tokenToKeep) {
+        val tokens = Arrays.stream(tokenRepository.findAllByAccount(account))
+                .filter(token -> !token.getToken().equals(tokenToKeep))
+                .toList();
+
+        tokenRepository.deleteAll(tokens);
+        log.info("Invalidated {} token(s) for account: {}", tokens.size(), account.getAccountNumber());
     }
 
 }
