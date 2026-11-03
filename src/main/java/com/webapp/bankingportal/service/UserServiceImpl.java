@@ -15,6 +15,7 @@ import org.springframework.web.servlet.ModelAndView;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
+import com.webapp.bankingportal.dto.RegisterUserRequest;
 import com.webapp.bankingportal.dto.UserResponse;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
@@ -52,7 +53,8 @@ public class UserServiceImpl implements UserService {
     private final ValidationUtil validationUtil;
 
     @Override
-    public ResponseEntity<String> registerUser(User user) {
+    public ResponseEntity<String> registerUser(RegisterUserRequest registerRequest) {
+        val user = toNewUser(registerRequest);
         validationUtil.validateNewUser(user);
         encodePassword(user);
         val savedUser = saveUserWithAccount(user);
@@ -150,6 +152,21 @@ public class UserServiceImpl implements UserService {
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email).orElseThrow(
                 () -> new UserInvalidException(String.format(ApiMessages.USER_NOT_FOUND_BY_EMAIL.getMessage(), email)));
+    }
+
+    private static User toNewUser(RegisterUserRequest registerRequest) {
+        if (registerRequest == null) {
+            throw new UserInvalidException(ApiMessages.USER_DETAILS_EMPTY_ERROR.getMessage());
+        }
+
+        val user = new User();
+        user.setName(registerRequest.name());
+        user.setPassword(registerRequest.password());
+        user.setEmail(registerRequest.email());
+        user.setCountryCode(registerRequest.countryCode());
+        user.setPhoneNumber(registerRequest.phoneNumber());
+        user.setAddress(registerRequest.address());
+        return user;
     }
 
     private void encodePassword(User user) {
