@@ -12,6 +12,7 @@ import com.webapp.bankingportal.dto.OtpVerificationRequest;
 import com.webapp.bankingportal.dto.ResetPasswordRequest;
 import com.webapp.bankingportal.entity.PasswordResetToken;
 import com.webapp.bankingportal.entity.User;
+import com.webapp.bankingportal.exception.OtpRetryLimitExceededException;
 import com.webapp.bankingportal.repository.PasswordResetTokenRepository;
 import com.webapp.bankingportal.util.ApiMessages;
 
@@ -63,18 +64,28 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public ResponseEntity<String> sendOtpForPasswordReset(OtpRequest otpRequest) {
-        log.info("Received OTP request for identifier: {}", otpRequest.identifier());
-        val user = userService.getUserByIdentifier(otpRequest.identifier());
-        val accountNumber = user.getAccount().getAccountNumber();
-        val generatedOtp = otpService.generateOTP(accountNumber);
+        validateIdentifier(otpRequest.identifier());
+        userService.findUserByIdentifier(otpRequest.identifier()).ifPresent(user -> {
+            val accountNumber = user.getAccount().getAccountNumber();
+            try {
+                val generatedOtp = otpService.generateOTP(accountNumber);
+                sendOtpEmail(user, accountNumber, generatedOtp);
+            } catch (OtpRetryLimitExceededException e) {
+                log.warn("Password reset OTP generation limit reached for user {}", user.getId());
+            }
+        });
 
-        return sendOtpEmail(user, accountNumber, generatedOtp);
+        return ResponseEntity.ok(ApiMessages.OTP_SENT_SUCCESS.getMessage());
     }
 
     @Override
     public ResponseEntity<String> verifyOtpAndIssueResetToken(OtpVerificationRequest otpVerificationRequest) {
         validateOtpRequest(otpVerificationRequest);
-        val user = userService.getUserByIdentifier(otpVerificationRequest.identifier());
+        val user = userService.findUserByIdentifier(otpVerificationRequest.identifier()).orElse(null);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiMessages.OTP_INVALID_ERROR.getMessage());
+        }
+
         val accountNumber = user.getAccount().getAccountNumber();
 
         if (!otpService.validateOTP(accountNumber, otpVerificationRequest.otp())) {
@@ -88,9 +99,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseEntity<String> resetPassword(ResetPasswordRequest resetPasswordRequest) {
-        val user = userService.getUserByIdentifier(resetPasswordRequest.identifier());
+        val user = userService.findUserByIdentifier(resetPasswordRequest.identifier()).orElse(null);
 
-        if (!verifyPasswordResetToken(resetPasswordRequest.resetToken(), user)) {
+        if (user == null || !verifyPasswordResetToken(resetPasswordRequest.resetToken(), user)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiMessages.TOKEN_INVALID_ERROR.getMessage());
         }
 
@@ -111,23 +122,22 @@ public class AuthServiceImpl implements AuthService {
         return existingToken != null && existingToken.getExpiryDateTime().isAfter(LocalDateTime.now().plusMinutes(5));
     }
 
-    private ResponseEntity<String> sendOtpEmail(User user, String accountNumber, String generatedOtp) {
-        val emailSendingFuture = otpService.sendOTPByEmail(user.getEmail(), user.getName(), accountNumber,
-                generatedOtp);
+    private void sendOtpEmail(User user, String accountNumber, String generatedOtp) {
+        otpService.sendOTPByEmail(user.getEmail(), user.getName(), accountNumber, generatedOtp)
+                .exceptionally(e -> {
+                    log.error("Failed to send password reset OTP email for user {}", user.getId(), e);
+                    return null;
+                });
+    }
 
-        val successResponse = ResponseEntity
-                .ok(String.format(ApiMessages.OTP_SENT_SUCCESS.getMessage(), user.getEmail()));
-        val failureResponse = ResponseEntity.internalServerError()
-                .body(String.format(ApiMessages.OTP_SENT_FAILURE.getMessage(), user.getEmail()));
-
-        return emailSendingFuture.thenApply(result -> successResponse)
-                .exceptionally(e -> failureResponse).join();
+    private void validateIdentifier(String identifier) {
+        if (identifier == null || identifier.isEmpty()) {
+            throw new IllegalArgumentException(ApiMessages.IDENTIFIER_MISSING_ERROR.getMessage());
+        }
     }
 
     private void validateOtpRequest(OtpVerificationRequest otpVerificationRequest) {
-        if (otpVerificationRequest.identifier() == null || otpVerificationRequest.identifier().isEmpty()) {
-            throw new IllegalArgumentException(ApiMessages.IDENTIFIER_MISSING_ERROR.getMessage());
-        }
+        validateIdentifier(otpVerificationRequest.identifier());
         if (otpVerificationRequest.otp() == null || otpVerificationRequest.otp().isEmpty()) {
             throw new IllegalArgumentException(ApiMessages.OTP_MISSING_ERROR.getMessage());
         }

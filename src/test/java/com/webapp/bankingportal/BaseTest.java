@@ -99,6 +99,17 @@ public abstract class BaseTest {
         return phoneNumberUtil.format(exampleNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
     }
 
+    protected static MimeMessage[] awaitReceivedMessagesForDomain(String domain) throws InterruptedException {
+        for (int i = 0; i < 50; i++) {
+            val messages = GreenMailJavaMailSender.getReceivedMessagesForDomain(domain);
+            if (messages.length > 0) {
+                return messages;
+            }
+            Thread.sleep(100);
+        }
+        return GreenMailJavaMailSender.getReceivedMessagesForDomain(domain);
+    }
+
     protected static String getRandomOtp() {
         return faker.number().digits(6);
     }

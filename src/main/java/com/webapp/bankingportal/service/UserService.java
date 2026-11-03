@@ -1,5 +1,7 @@
 package com.webapp.bankingportal.service;
 
+import java.util.Optional;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.ModelAndView;
 
@@ -31,7 +33,7 @@ public interface UserService {
 
     public User saveUser(User user);
 
-    public User getUserByIdentifier(String identifier);
+    public Optional<User> findUserByIdentifier(String identifier);
 
     public User getUserByAccountNumber(String accountNo);
 

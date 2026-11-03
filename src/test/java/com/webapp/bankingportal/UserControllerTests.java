@@ -386,7 +386,31 @@ public class UserControllerTests extends BaseTest {
                 .post("/api/users/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(loginRequest)))
-                .andExpect(MockMvcResultMatchers.status().isBadRequest());
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.LOGIN_CREDENTIALS_INVALID_ERROR.getMessage()));
+    }
+
+    @Test
+    public void test_login_with_unknown_email_matches_wrong_password_response() throws Exception {
+        val user = createAndRegisterUser();
+
+        val unknownResult = mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new LoginRequest(createUser().getEmail(), getRandomPassword()))))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
+                .andReturn();
+
+        val knownResult = mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new LoginRequest(user.getEmail(), getRandomPassword()))))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
+                .andReturn();
+
+        Assertions.assertEquals(knownResult.getResponse().getContentAsString(),
+                unknownResult.getResponse().getContentAsString());
     }
 
     @Test
@@ -453,7 +477,7 @@ public class UserControllerTests extends BaseTest {
                 .content(JsonUtil.toJson(otpRequest)))
                 .andExpect(MockMvcResultMatchers.status().isOk())
                 .andExpect(MockMvcResultMatchers.content()
-                        .string(String.format(ApiMessages.OTP_SENT_SUCCESS.getMessage(), user.getEmail())));
+                        .string(ApiMessages.OTP_SENT_SUCCESS.getMessage()));
     }
 
     @Test
@@ -464,7 +488,37 @@ public class UserControllerTests extends BaseTest {
                 .post("/api/users/generate-otp")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(JsonUtil.toJson(otpRequest)))
-                .andExpect(MockMvcResultMatchers.status().isBadRequest());
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.OTP_SENT_SUCCESS.getMessage()));
+    }
+
+    @Test
+    public void test_generate_otp_response_does_not_reveal_email() throws Exception {
+        val user = createAndRegisterUser();
+        val accountNumber = userRepository
+                .findByEmail(user.getEmail())
+                .get()
+                .getAccount()
+                .getAccountNumber();
+
+        val knownResult = mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/generate-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new OtpRequest(accountNumber))))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andReturn();
+
+        val unknownResult = mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/generate-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new OtpRequest(createUser().getEmail()))))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andReturn();
+
+        val knownBody = knownResult.getResponse().getContentAsString();
+        Assertions.assertEquals(knownBody, unknownResult.getResponse().getContentAsString());
+        Assertions.assertFalse(knownBody.contains(user.getEmail()));
     }
 
     @Test
@@ -495,9 +549,9 @@ public class UserControllerTests extends BaseTest {
                 .content(JsonUtil.toJson(otpRequest)))
                 .andExpect(MockMvcResultMatchers.status().isOk())
                 .andExpect(MockMvcResultMatchers.content()
-                        .string(String.format(ApiMessages.OTP_SENT_SUCCESS.getMessage(), user.getEmail())));
+                        .string(ApiMessages.OTP_SENT_SUCCESS.getMessage()));
 
-        val receivedMessages = GreenMailJavaMailSender.getReceivedMessagesForDomain(user.getEmail());
+        val receivedMessages = awaitReceivedMessagesForDomain(user.getEmail());
         val otpVerificationRequest = new OtpVerificationRequest(accountNumber, getOtpFromEmail(receivedMessages[0]));
 
         val loginResult = mockMvc.perform(MockMvcRequestBuilders
@@ -532,6 +586,19 @@ public class UserControllerTests extends BaseTest {
                 .getAccountNumber();
 
         val otpVerificationRequest = new OtpVerificationRequest(accountNumber, getRandomOtp());
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/verify-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(otpVerificationRequest)))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.OTP_INVALID_ERROR.getMessage()));
+    }
+
+    @Test
+    public void test_verify_otp_with_unknown_identifier_matches_invalid_otp_response() throws Exception {
+        val otpVerificationRequest = new OtpVerificationRequest(getRandomAccountNumber(), getRandomOtp());
 
         mockMvc.perform(MockMvcRequestBuilders
                 .post("/api/users/verify-otp")
