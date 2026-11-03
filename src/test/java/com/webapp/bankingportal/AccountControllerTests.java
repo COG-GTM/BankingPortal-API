@@ -1,5 +1,7 @@
 package com.webapp.bankingportal;
 
+import java.util.Date;
+
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Test;
 
@@ -162,6 +164,35 @@ public class AccountControllerTests extends BaseTest {
                 .andExpect(MockMvcResultMatchers.status().isOk())
                 .andExpect(MockMvcResultMatchers.content()
                         .string(ApiMessages.PIN_UPDATE_SUCCESS.getMessage()));
+    }
+
+    @Test
+    public void test_pin_update_invalidates_other_sessions() throws Exception {
+        val userDetails = createAndLoginUserWithPin();
+        val currentToken = userDetails.get("token");
+        val otherToken = generateToken(userDetails.get("accountNumber"), userDetails.get("password"),
+                new Date(System.currentTimeMillis() + 3_600_000));
+        tokenService.saveToken(otherToken);
+
+        val pinUpdateRequest = new PinUpdateRequest(userDetails.get("accountNumber"), userDetails.get("pin"),
+                getRandomPin(), userDetails.get("password"));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/account/pin/update")
+                .header("Authorization", "Bearer " + currentToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(pinUpdateRequest)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/dashboard/user")
+                .header("Authorization", "Bearer " + otherToken))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized());
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/dashboard/user")
+                .header("Authorization", "Bearer " + currentToken))
+                .andExpect(MockMvcResultMatchers.status().isOk());
     }
 
     @Test

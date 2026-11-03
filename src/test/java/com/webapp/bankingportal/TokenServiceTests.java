@@ -136,4 +136,36 @@ public class TokenServiceTests extends BaseTest {
                 ApiMessages.TOKEN_EMPTY_ERROR.getMessage());
     }
 
+    @Test
+    public void test_invalidate_all_tokens_removes_every_session_of_account() throws Exception {
+        val userDetails = createAndLoginUser();
+        val firstToken = userDetails.get("token");
+        val secondToken = generateToken(userDetails.get("accountNumber"), userDetails.get("password"),
+                new Date(System.currentTimeMillis() + 3_600_000));
+        tokenService.saveToken(secondToken);
+        val otherAccountToken = createAndLoginUser().get("token");
+
+        tokenService.invalidateAllTokens(tokenRepository.findByToken(firstToken).getAccount());
+
+        Assertions.assertNull(tokenRepository.findByToken(firstToken));
+        Assertions.assertNull(tokenRepository.findByToken(secondToken));
+        Assertions.assertNotNull(tokenRepository.findByToken(otherAccountToken));
+    }
+
+    @Test
+    public void test_invalidate_other_tokens_keeps_current_session() throws Exception {
+        val userDetails = createAndLoginUser();
+        val currentToken = userDetails.get("token");
+        val otherToken = generateToken(userDetails.get("accountNumber"), userDetails.get("password"),
+                new Date(System.currentTimeMillis() + 3_600_000));
+        tokenService.saveToken(otherToken);
+        val otherAccountToken = createAndLoginUser().get("token");
+
+        tokenService.invalidateOtherTokens(currentToken);
+
+        Assertions.assertNotNull(tokenRepository.findByToken(currentToken));
+        Assertions.assertNull(tokenRepository.findByToken(otherToken));
+        Assertions.assertNotNull(tokenRepository.findByToken(otherAccountToken));
+    }
+
 }

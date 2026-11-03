@@ -6,6 +6,7 @@ import java.util.function.Function;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 
+import com.webapp.bankingportal.entity.Account;
 import com.webapp.bankingportal.exception.InvalidTokenException;
 
 import io.jsonwebtoken.Claims;
@@ -28,4 +29,8 @@ public interface TokenService extends UserDetailsService {
     public void validateToken(String token) throws InvalidTokenException;
 
     public void invalidateToken(String token);
+
+    public void invalidateAllTokens(Account account);
+
+    public void invalidateOtherTokens(String currentToken);
 }
