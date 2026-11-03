@@ -528,6 +528,26 @@ public class AccountServiceTests extends BaseTest {
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void test_correct_pin_resets_attempts_when_operation_fails_validation() {
+        val accountDetails = createAccountWithPin(passwordEncoder, userRepository, accountService);
+        val accountNumber = accountDetails.get("accountNumber");
+        val pin = accountDetails.get("pin");
+
+        failPinAttempts(accountNumber, pin, 2);
+        Assertions.assertThrows(InvalidAmountException.class,
+                () -> accountService.cashDeposit(accountNumber, pin, 50.0));
+        Assertions.assertThrows(InsufficientBalanceException.class,
+                () -> accountService.cashWithdrawal(accountNumber, pin, 100.0));
+        Assertions.assertEquals(0, accountRepository.findByAccountNumber(accountNumber).getFailedPinAttempts());
+
+        Assertions.assertThrows(IncorrectPinException.class,
+                () -> accountService.cashDeposit(accountNumber, getWrongPin(pin), 100.0));
+        Assertions.assertNull(accountRepository.findByAccountNumber(accountNumber).getPinLockedUntil());
+        Assertions.assertEquals(0.0, accountRepository.findByAccountNumber(accountNumber).getBalance());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void test_concurrent_wrong_pins_cannot_exceed_max_attempts() throws Exception {
         val accountDetails = createAccountWithPin(passwordEncoder, userRepository, accountService);
         val accountNumber = accountDetails.get("accountNumber");

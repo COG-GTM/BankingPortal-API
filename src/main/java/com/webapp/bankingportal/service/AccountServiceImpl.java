@@ -28,7 +28,6 @@ import com.webapp.bankingportal.util.ApiMessages;
 import lombok.RequiredArgsConstructor;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -159,7 +158,7 @@ public class AccountServiceImpl implements AccountService {
         accountRepository.save(account);
     }
 
-    @Transactional(noRollbackFor = { IncorrectPinException.class, PinLockedException.class })
+    @PinProtectedTransaction
     @Override
     public void updatePin(String accountNumber, String oldPin, String password, String newPin) {
         log.info("Updating PIN for account: {}", accountNumber);
@@ -208,7 +207,7 @@ public class AccountServiceImpl implements AccountService {
         }
     }
 
-    @Transactional(noRollbackFor = { IncorrectPinException.class, PinLockedException.class })
+    @PinProtectedTransaction
     @Override
     public void cashDeposit(String accountNumber, String pin, double amount) {
         validatePin(accountNumber, pin);
@@ -228,7 +227,7 @@ public class AccountServiceImpl implements AccountService {
         transactionRepository.save(transaction);
     }
 
-    @Transactional(noRollbackFor = { IncorrectPinException.class, PinLockedException.class })
+    @PinProtectedTransaction
     @Override
     public void cashWithdrawal(String accountNumber, String pin, double amount) {
         validatePin(accountNumber, pin);
@@ -252,7 +251,7 @@ public class AccountServiceImpl implements AccountService {
         transactionRepository.save(transaction);
     }
 
-    @Transactional(noRollbackFor = { IncorrectPinException.class, PinLockedException.class })
+    @PinProtectedTransaction
     @Override
     public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
         validatePin(sourceAccountNumber, pin);
