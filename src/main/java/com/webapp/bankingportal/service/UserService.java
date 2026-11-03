@@ -6,6 +6,7 @@ import org.springframework.web.servlet.ModelAndView;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
+import com.webapp.bankingportal.dto.RegisterUserRequest;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
 
@@ -13,7 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 public interface UserService {
 
-    public ResponseEntity<String> registerUser(User user);
+    public ResponseEntity<String> registerUser(RegisterUserRequest registerRequest);
 
     public ResponseEntity<String> login(LoginRequest loginRequest, HttpServletRequest request)
             throws InvalidTokenException;

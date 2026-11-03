@@ -1,5 +1,7 @@
 package com.webapp.bankingportal;
 
+import java.util.HashMap;
+
 import org.hamcrest.core.StringContains;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,6 +31,64 @@ public class UserControllerTests extends BaseTest {
     @Test
     public void test_register_user_with_valid_details() throws Exception {
         createAndRegisterUser();
+    }
+
+    @Test
+    public void test_register_user_ignores_client_supplied_id_and_account() throws Exception {
+        val victim = createAndRegisterUser();
+        val victimEntity = userRepository.findByEmail(victim.getEmail()).get();
+        val victimId = victimEntity.getId();
+        val victimPasswordHash = victimEntity.getPassword();
+        val victimAccountNumber = victimEntity.getAccount().getAccountNumber();
+
+        val attacker = createUser();
+        val account = new HashMap<String, Object>();
+        account.put("accountNumber", victimAccountNumber);
+        val payload = new HashMap<String, Object>();
+        payload.put("id", victimId);
+        payload.put("account", account);
+        payload.put("name", attacker.getName());
+        payload.put("password", attacker.getPassword());
+        payload.put("email", attacker.getEmail());
+        payload.put("countryCode", attacker.getCountryCode());
+        payload.put("phoneNumber", attacker.getPhoneNumber());
+        payload.put("address", attacker.getAddress());
+
+        val registerResult = mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(payload)))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andReturn();
+        String attackerAccountNumber = JsonPath.read(
+                registerResult.getResponse().getContentAsString(), "$.accountNumber");
+        Assertions.assertNotEquals(victimAccountNumber, attackerAccountNumber);
+
+        val victimAfter = userRepository.findById(victimId).get();
+        Assertions.assertEquals(victim.getEmail(), victimAfter.getEmail());
+        Assertions.assertEquals(victim.getName(), victimAfter.getName());
+        Assertions.assertEquals(victim.getPhoneNumber(), victimAfter.getPhoneNumber());
+        Assertions.assertEquals(victimPasswordHash, victimAfter.getPassword());
+        Assertions.assertEquals(victimAccountNumber, victimAfter.getAccount().getAccountNumber());
+
+        val attackerEntity = userRepository.findByEmail(attacker.getEmail()).get();
+        Assertions.assertNotEquals(victimId, attackerEntity.getId());
+        Assertions.assertEquals(attackerAccountNumber, attackerEntity.getAccount().getAccountNumber());
+
+        val loginResult = mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new LoginRequest(attacker.getEmail(), attacker.getPassword()))))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andReturn();
+        String token = JsonPath.read(loginResult.getResponse().getContentAsString(), "$.token");
+        Assertions.assertEquals(attackerAccountNumber, tokenService.getUsernameFromToken(token));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new LoginRequest(victimAccountNumber, attacker.getPassword()))))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized());
     }
 
     @Test
