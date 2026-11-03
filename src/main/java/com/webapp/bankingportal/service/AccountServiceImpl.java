@@ -1,7 +1,9 @@
 package com.webapp.bankingportal.service;
 
 import java.util.Date;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -156,9 +158,24 @@ public class AccountServiceImpl implements AccountService {
         }
     }
 
+    /**
+     * Takes row locks on the given accounts in a fixed order so concurrent
+     * balance updates serialize instead of overwriting each other. Must run
+     * before the accounts are first read in the current transaction, so later
+     * lookups return the locked, up-to-date rows.
+     */
+    private void lockAccounts(String... accountNumbers) {
+        Stream.of(accountNumbers)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .forEach(accountRepository::findByAccountNumberForUpdate);
+    }
+
     @Transactional
     @Override
     public void cashDeposit(String accountNumber, String pin, double amount) {
+        lockAccounts(accountNumber);
         validatePin(accountNumber, pin);
         validateAmount(amount);
 
@@ -179,6 +196,7 @@ public class AccountServiceImpl implements AccountService {
     @Transactional
     @Override
     public void cashWithdrawal(String accountNumber, String pin, double amount) {
+        lockAccounts(accountNumber);
         validatePin(accountNumber, pin);
         validateAmount(amount);
 
@@ -203,6 +221,7 @@ public class AccountServiceImpl implements AccountService {
     @Transactional
     @Override
     public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
+        lockAccounts(sourceAccountNumber, targetAccountNumber);
         validatePin(sourceAccountNumber, pin);
         validateAmount(amount);
 

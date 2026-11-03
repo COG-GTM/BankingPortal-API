@@ -17,6 +17,7 @@ public enum ApiMessages {
     CASH_WITHDRAWAL_SUCCESS("{\"msg\": \"Cash withdrawn successfully\"}"),
     EMAIL_SUBJECT_LOGIN("New login to OneStopBank"),
     EMAIL_SUBJECT_OTP("OTP Verification"),
+    IDEMPOTENCY_KEY_CONFLICT("Idempotency-Key was already used for a different request"),
     GEOLOCATION_FAILED("Failed to get geolocation for IP: %s"),
     IDENTIFIER_MISSING_ERROR("Missing identifier"),
     OTP_GENERATION_LIMIT_EXCEEDED("OTP generation limit exceeded. Please try again after %d minutes"),
