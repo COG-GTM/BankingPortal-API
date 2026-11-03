@@ -170,15 +170,14 @@ public class UserServiceImpl implements UserService {
 
     private User authenticateUser(LoginRequest loginRequest) {
         validateIdentifier(loginRequest.identifier());
-        val user = findUserByIdentifier(loginRequest.identifier()).orElseThrow(() -> {
-            // Spend comparable hashing time so unknown identifiers are not distinguishable by latency.
-            passwordEncoder.encode(String.valueOf(loginRequest.password()));
-            return new BadCredentialsException(ApiMessages.LOGIN_CREDENTIALS_INVALID_ERROR.getMessage());
-        });
-        val accountNumber = user.getAccount().getAccountNumber();
+        val user = findUserByIdentifier(loginRequest.identifier());
+        // Unknown identifiers go through the same AuthenticationManager path (user lookup + password hash
+        // check, with Spring's built-in user-not-found timing mitigation) so latency does not reveal them.
+        val principal = user.map(u -> u.getAccount().getAccountNumber()).orElse(loginRequest.identifier());
         authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(accountNumber, loginRequest.password()));
-        return user;
+                .authenticate(new UsernamePasswordAuthenticationToken(principal, loginRequest.password()));
+        return user.orElseThrow(
+                () -> new BadCredentialsException(ApiMessages.LOGIN_CREDENTIALS_INVALID_ERROR.getMessage()));
     }
 
     private void authenticateUser(String accountNumber, String password) {
