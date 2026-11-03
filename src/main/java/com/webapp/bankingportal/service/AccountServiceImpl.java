@@ -1,9 +1,11 @@
 package com.webapp.bankingportal.service;
 
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -12,10 +14,12 @@ import com.webapp.bankingportal.entity.Transaction;
 import com.webapp.bankingportal.entity.TransactionType;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.FundTransferException;
+import com.webapp.bankingportal.exception.IncorrectPinException;
 import com.webapp.bankingportal.exception.InsufficientBalanceException;
 import com.webapp.bankingportal.exception.InvalidAmountException;
 import com.webapp.bankingportal.exception.InvalidPinException;
 import com.webapp.bankingportal.exception.NotFoundException;
+import com.webapp.bankingportal.exception.PinLockedException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
 import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.repository.TransactionRepository;
@@ -24,7 +28,6 @@ import com.webapp.bankingportal.util.ApiMessages;
 import lombok.RequiredArgsConstructor;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -36,6 +39,12 @@ public class AccountServiceImpl implements AccountService {
     private final PasswordEncoder passwordEncoder;
     @Autowired
     private final TransactionRepository transactionRepository;
+
+    @Value("${pin.lockout.max-attempts:3}")
+    private int maxFailedPinAttempts;
+
+    @Value("${pin.lockout.duration-minutes:30}")
+    private long pinLockoutDurationMinutes;
 
     @Override
     public Account createAccount(User user) {
@@ -80,9 +89,37 @@ public class AccountServiceImpl implements AccountService {
             throw new UnauthorizedException(ApiMessages.PIN_EMPTY_ERROR.getMessage());
         }
 
-        if (!passwordEncoder.matches(pin, account.getPin())) {
-            throw new UnauthorizedException(ApiMessages.PIN_INVALID_ERROR.getMessage());
+        accountRepository.clearExpiredPinLock(accountNumber, new Date());
+        if (accountRepository.reservePinAttempt(accountNumber, maxFailedPinAttempts) == 0) {
+            throw pinLockedException(accountNumber);
         }
+
+        if (!passwordEncoder.matches(pin, account.getPin())) {
+            val lockedUntil = new Date(
+                    System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(pinLockoutDurationMinutes));
+            if (accountRepository.lockPinIfAttemptsExhausted(accountNumber, maxFailedPinAttempts, lockedUntil) > 0) {
+                log.warn("PIN locked for account {} after {} failed attempts", accountNumber, maxFailedPinAttempts);
+            }
+
+            if (accountRepository.findPinLockedUntil(accountNumber) != null) {
+                throw pinLockedException(accountNumber);
+            }
+
+            throw new IncorrectPinException(ApiMessages.PIN_INVALID_ERROR.getMessage());
+        }
+
+        accountRepository.resetPinAttempts(accountNumber);
+    }
+
+    private PinLockedException pinLockedException(String accountNumber) {
+        val lockedUntil = accountRepository.findPinLockedUntil(accountNumber);
+        long remainingMinutes = pinLockoutDurationMinutes;
+        if (lockedUntil != null) {
+            val remainingMillis = Math.max(lockedUntil.getTime() - System.currentTimeMillis(), 1);
+            remainingMinutes = TimeUnit.MILLISECONDS.toMinutes(remainingMillis - 1) + 1;
+        }
+
+        return new PinLockedException(String.format(ApiMessages.PIN_LOCKED_ERROR.getMessage(), remainingMinutes));
     }
 
     private void validatePassword(String accountNumber, String password) {
@@ -121,6 +158,7 @@ public class AccountServiceImpl implements AccountService {
         accountRepository.save(account);
     }
 
+    @PinProtectedTransaction
     @Override
     public void updatePin(String accountNumber, String oldPin, String password, String newPin) {
         log.info("Updating PIN for account: {}", accountNumber);
@@ -142,6 +180,19 @@ public class AccountServiceImpl implements AccountService {
         accountRepository.save(account);
     }
 
+    @Override
+    public void unlockPin(String accountNumber, String password) {
+        validatePassword(accountNumber, password);
+
+        val account = accountRepository.findByAccountNumber(accountNumber);
+        if (account.getPin() == null) {
+            throw new UnauthorizedException(ApiMessages.PIN_NOT_CREATED.getMessage());
+        }
+
+        log.info("Unlocking PIN for account: {}", accountNumber);
+        accountRepository.resetPinAttempts(accountNumber);
+    }
+
     private void validateAmount(double amount) {
         if (amount <= 0) {
             throw new InvalidAmountException(ApiMessages.AMOUNT_NEGATIVE_ERROR.getMessage());
@@ -156,7 +207,7 @@ public class AccountServiceImpl implements AccountService {
         }
     }
 
-    @Transactional
+    @PinProtectedTransaction
     @Override
     public void cashDeposit(String accountNumber, String pin, double amount) {
         validatePin(accountNumber, pin);
@@ -176,7 +227,7 @@ public class AccountServiceImpl implements AccountService {
         transactionRepository.save(transaction);
     }
 
-    @Transactional
+    @PinProtectedTransaction
     @Override
     public void cashWithdrawal(String accountNumber, String pin, double amount) {
         validatePin(accountNumber, pin);
@@ -200,7 +251,7 @@ public class AccountServiceImpl implements AccountService {
         transactionRepository.save(transaction);
     }
 
-    @Transactional
+    @PinProtectedTransaction
     @Override
     public void fundTransfer(String sourceAccountNumber, String targetAccountNumber, String pin, double amount) {
         validatePin(sourceAccountNumber, pin);

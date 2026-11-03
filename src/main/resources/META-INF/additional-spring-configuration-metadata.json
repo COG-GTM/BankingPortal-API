@@ -29,6 +29,18 @@
             "name": "geo.api.key",
             "type": "java.lang.String",
             "description": "Geolocation API key"
+        },
+        {
+            "name": "pin.lockout.max-attempts",
+            "type": "java.lang.Integer",
+            "description": "Consecutive failed PIN attempts before the PIN is locked",
+            "defaultValue": 3
+        },
+        {
+            "name": "pin.lockout.duration-minutes",
+            "type": "java.lang.Long",
+            "description": "Minutes a locked PIN stays locked before it unlocks automatically",
+            "defaultValue": 30
         }
     ]
 }
