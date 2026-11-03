@@ -9,6 +9,20 @@
 
 - [https://github.com/abhi9720/BankingPortal-API/wiki](https://github.com/abhi9720/BankingPortal-API/wiki)
 
+### Public authentication endpoints: response contract
+
+To avoid user enumeration, these public endpoints return the same response whether or not the
+`identifier` (email or account number) belongs to an account, and never include the account's email:
+
+| Endpoint | Response for known **and** unknown identifiers |
+|---|---|
+| `POST /api/users/generate-otp`, `POST /api/auth/password-reset/send-otp` | `200 {"message": "If an account exists for the given identifier, an OTP has been sent to its registered email address"}` (also returned when the per-account OTP limit is reached or the email cannot be sent) |
+| `POST /api/users/login` | `401 Bad credentials` on unknown identifier or wrong password |
+| `POST /api/users/verify-otp`, `POST /api/auth/password-reset/verify-otp` | `401 Invalid OTP` on unknown identifier or wrong OTP |
+| `POST /api/auth/password-reset` | `401 Token is invalid` on unknown identifier or invalid reset token |
+
+A missing `identifier` still returns `400 Missing identifier`.
+
 ## Banking Portal UI
 
 - [https://github.com/abhi9720/BankingPortal-UI](https://github.com/abhi9720/BankingPortal-UI)

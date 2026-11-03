@@ -1,10 +1,12 @@
 package com.webapp.bankingportal.service;
 
 import java.sql.Timestamp;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,6 +20,7 @@ import com.webapp.bankingportal.dto.OtpVerificationRequest;
 import com.webapp.bankingportal.dto.UserResponse;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
+import com.webapp.bankingportal.exception.OtpRetryLimitExceededException;
 import com.webapp.bankingportal.exception.PasswordResetException;
 import com.webapp.bankingportal.exception.UnauthorizedException;
 import com.webapp.bankingportal.exception.UserInvalidException;
@@ -70,16 +73,24 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseEntity<String> generateOtp(OtpRequest otpRequest) {
-        val user = getUserByIdentifier(otpRequest.identifier());
-        val otp = otpService.generateOTP(user.getAccount().getAccountNumber());
-        return sendOtpEmail(user, otp);
+        validateIdentifier(otpRequest.identifier());
+        findUserByIdentifier(otpRequest.identifier()).ifPresent(user -> {
+            try {
+                val otp = otpService.generateOTP(user.getAccount().getAccountNumber());
+                sendOtpEmail(user, otp);
+            } catch (OtpRetryLimitExceededException e) {
+                log.warn("OTP generation limit reached for user {}", user.getId());
+            }
+        });
+        return ResponseEntity.ok(ApiMessages.OTP_SENT_SUCCESS.getMessage());
     }
 
     @Override
     public ResponseEntity<String> verifyOtpAndLogin(OtpVerificationRequest otpVerificationRequest)
             throws InvalidTokenException {
         validateOtpRequest(otpVerificationRequest);
-        val user = getUserByIdentifier(otpVerificationRequest.identifier());
+        val user = findUserByIdentifier(otpVerificationRequest.identifier())
+                .orElseThrow(() -> new UnauthorizedException(ApiMessages.OTP_INVALID_ERROR.getMessage()));
         validateOtp(user, otpVerificationRequest.otp());
         val token = generateAndSaveToken(user.getAccount().getAccountNumber());
         return ResponseEntity.ok(String.format(ApiMessages.TOKEN_ISSUED_SUCCESS.getMessage(), token));
@@ -124,19 +135,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User getUserByIdentifier(String identifier) {
-        User user = null;
-
-        if (validationUtil.doesEmailExist(identifier)) {
-            user = getUserByEmail(identifier);
-        } else if (validationUtil.doesAccountExist(identifier)) {
-            user = getUserByAccountNumber(identifier);
-        } else {
-            throw new UserInvalidException(
-                    String.format(ApiMessages.USER_NOT_FOUND_BY_IDENTIFIER.getMessage(), identifier));
+    public Optional<User> findUserByIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return Optional.empty();
         }
 
-        return user;
+        return userRepository.findByEmail(identifier)
+                .or(() -> userRepository.findByAccountAccountNumber(identifier));
     }
 
     @Override
@@ -164,11 +169,15 @@ public class UserServiceImpl implements UserService {
     }
 
     private User authenticateUser(LoginRequest loginRequest) {
-        val user = getUserByIdentifier(loginRequest.identifier());
-        val accountNumber = user.getAccount().getAccountNumber();
+        validateIdentifier(loginRequest.identifier());
+        val user = findUserByIdentifier(loginRequest.identifier());
+        // Unknown identifiers go through the same AuthenticationManager path (user lookup + password hash
+        // check, with Spring's built-in user-not-found timing mitigation) so latency does not reveal them.
+        val principal = user.map(u -> u.getAccount().getAccountNumber()).orElse(loginRequest.identifier());
         authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(accountNumber, loginRequest.password()));
-        return user;
+                .authenticate(new UsernamePasswordAuthenticationToken(principal, loginRequest.password()));
+        return user.orElseThrow(
+                () -> new BadCredentialsException(ApiMessages.LOGIN_CREDENTIALS_INVALID_ERROR.getMessage()));
     }
 
     private void authenticateUser(String accountNumber, String password) {
@@ -182,23 +191,22 @@ public class UserServiceImpl implements UserService {
         return token;
     }
 
-    private ResponseEntity<String> sendOtpEmail(User user, String otp) {
-        val emailSendingFuture = otpService.sendOTPByEmail(
-                user.getEmail(), user.getName(), user.getAccount().getAccountNumber(), otp);
+    private void sendOtpEmail(User user, String otp) {
+        otpService.sendOTPByEmail(user.getEmail(), user.getName(), user.getAccount().getAccountNumber(), otp)
+                .exceptionally(e -> {
+                    log.error("Failed to send OTP email for user {}", user.getId(), e);
+                    return null;
+                });
+    }
 
-        ResponseEntity<String> successResponse = ResponseEntity
-                .ok(String.format(ApiMessages.OTP_SENT_SUCCESS.getMessage(), user.getEmail()));
-        ResponseEntity<String> failureResponse = ResponseEntity.internalServerError()
-                .body(String.format(ApiMessages.OTP_SENT_FAILURE.getMessage(), user.getEmail()));
-
-        return emailSendingFuture.thenApply(result -> successResponse)
-                .exceptionally(e -> failureResponse).join();
+    private void validateIdentifier(String identifier) {
+        if (identifier == null || identifier.isEmpty()) {
+            throw new IllegalArgumentException(ApiMessages.IDENTIFIER_MISSING_ERROR.getMessage());
+        }
     }
 
     private void validateOtpRequest(OtpVerificationRequest request) {
-        if (request.identifier() == null || request.identifier().isEmpty()) {
-            throw new IllegalArgumentException(ApiMessages.IDENTIFIER_MISSING_ERROR.getMessage());
-        }
+        validateIdentifier(request.identifier());
         if (request.otp() == null || request.otp().isEmpty()) {
             throw new IllegalArgumentException(ApiMessages.OTP_MISSING_ERROR.getMessage());
         }
