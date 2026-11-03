@@ -1,7 +1,6 @@
 package com.webapp.bankingportal.controller;
 
 import com.webapp.bankingportal.service.EmailService;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +14,7 @@ import org.springframework.web.servlet.ModelAndView;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
+import com.webapp.bankingportal.dto.RegisterUserRequest;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
 import com.webapp.bankingportal.service.UserService;
@@ -33,13 +33,13 @@ public class UserController {
     private EmailService emailService;
 
     @PostMapping("/register")
-    public ResponseEntity<String> registerUser(@Valid @RequestBody User user) {
-        ResponseEntity<String> response = userService.registerUser(user);
+    public ResponseEntity<String> registerUser(@RequestBody RegisterUserRequest registerUserRequest) {
+        ResponseEntity<String> response = userService.registerUser(registerUserRequest);
 
         // Only send email if registration succeeded
         if (response.getStatusCode().is2xxSuccessful()) {
-            String emailBody = emailService.getBankStatementEmailTemplate(user.getName(), "Welcome! Your account is created.");
-            emailService.sendEmail(user.getEmail(), "Welcome to OneStopBank", emailBody);
+            String emailBody = emailService.getBankStatementEmailTemplate(registerUserRequest.name(), "Welcome! Your account is created.");
+            emailService.sendEmail(registerUserRequest.email(), "Welcome to OneStopBank", emailBody);
         }
 
         return response;
