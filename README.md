@@ -22,6 +22,18 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 ## Features
 
 - User Registration: Users can register by providing their details, such as name, email, address, and phone number.
+  `POST /api/users/register` accepts only `name`, `password`, `email`, `countryCode`, `phoneNumber` and `address`; any `id` or `account` fields in the body are ignored (they are also ignored on `POST /api/users/update`).
+
+  ```json
+  {
+    "name": "Jane Doe",
+    "password": "Str0ng!Pass",
+    "email": "jane@example.com",
+    "countryCode": "US",
+    "phoneNumber": "2025550123",
+    "address": "1 Main St, Springfield"
+  }
+  ```
 - PIN Management: Users can create and update their PINs for added security.
 - Cash Deposit and Withdrawal: Users can deposit and withdraw cash from their accounts.
 - Fund Transfer: Users can transfer funds to other accounts within the system.
