@@ -1,12 +1,15 @@
 package com.webapp.bankingportal.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.webapp.bankingportal.entity.OtpInfo;
 import com.webapp.bankingportal.exception.AccountDoesNotExistException;
@@ -27,6 +30,9 @@ public class OtpServiceImpl implements OtpService {
     public static final int OTP_EXPIRY_MINUTES = 5;
     public static final int OTP_RESET_WAITING_TIME_MINUTES = 10;
     public static final int OTP_RETRY_LIMIT_WINDOW_MINUTES = 15;
+    public static final int OTP_MAX_VERIFICATION_ATTEMPTS = 5;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final CacheManager cacheManager;
     private final EmailService emailService;
@@ -134,8 +140,7 @@ public class OtpServiceImpl implements OtpService {
     }
 
     private String generateNewOTP(String accountNumber) {
-        val random = new Random();
-        val otpValue = 100_000 + random.nextInt(900_000);
+        val otpValue = 100_000 + SECURE_RANDOM.nextInt(900_000);
         val otp = String.valueOf(otpValue);
 
         otpInfoRepository.save(new OtpInfo(accountNumber, otp, LocalDateTime.now()));
@@ -150,13 +155,44 @@ public class OtpServiceImpl implements OtpService {
     }
 
     @Override
+    @Transactional(noRollbackFor = InvalidOtpException.class)
     public boolean validateOTP(String accountNumber, String otp) {
-        val otpInfo = otpInfoRepository.findByAccountNumberAndOtp(accountNumber, otp);
-        if (otpInfo == null) {
+        val otpInfo = otpInfoRepository.findByAccountNumber(accountNumber);
+        if (otpInfo == null || otp == null) {
             throw new InvalidOtpException(ApiMessages.OTP_INVALID_ERROR.getMessage());
         }
 
-        return !isOtpExpired(otpInfo);
+        if (isOtpExpired(otpInfo)) {
+            return false;
+        }
+
+        // Atomically reserve an attempt so concurrent guesses cannot exceed the limit.
+        val reserved = otpInfoRepository.incrementVerificationAttempts(
+                otpInfo.getId(), OTP_MAX_VERIFICATION_ATTEMPTS);
+        if (reserved == 0) {
+            otpInfoRepository.deleteOtpInfoById(otpInfo.getId());
+            throw new InvalidOtpException(ApiMessages.OTP_INVALID_ERROR.getMessage());
+        }
+
+        if (!otpMatches(otpInfo.getOtp(), otp)) {
+            if (otpInfo.getVerificationAttempts() + 1 >= OTP_MAX_VERIFICATION_ATTEMPTS) {
+                otpInfoRepository.deleteOtpInfoById(otpInfo.getId());
+            }
+            throw new InvalidOtpException(ApiMessages.OTP_INVALID_ERROR.getMessage());
+        }
+
+        // Single use: consume the code on successful verification.
+        if (otpInfoRepository.deleteOtpInfoById(otpInfo.getId()) == 0) {
+            throw new InvalidOtpException(ApiMessages.OTP_INVALID_ERROR.getMessage());
+        }
+
+        return true;
+    }
+
+    private static boolean otpMatches(String expected, String actual) {
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8));
     }
 
     private boolean isOtpExpired(OtpInfo otpInfo) {
