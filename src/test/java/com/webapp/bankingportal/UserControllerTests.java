@@ -15,6 +15,7 @@ import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
 import com.webapp.bankingportal.dto.PinRequest;
+import com.webapp.bankingportal.service.OtpServiceImpl;
 import com.webapp.bankingportal.service.TokenService;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
@@ -520,6 +521,111 @@ public class UserControllerTests extends BaseTest {
                 .andExpect(MockMvcResultMatchers.status().isOk())
                 .andExpect(MockMvcResultMatchers.jsonPath("$.msg")
                         .value("PIN created successfully"));
+    }
+
+    @Test
+    public void test_verify_otp_rejected_after_max_failed_attempts() throws Exception {
+        val user = createAndRegisterUser();
+        val accountNumber = userRepository
+                .findByEmail(user.getEmail())
+                .get()
+                .getAccount()
+                .getAccountNumber();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/generate-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new OtpRequest(accountNumber))))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        val receivedMessages = GreenMailJavaMailSender.getReceivedMessagesForDomain(user.getEmail());
+        val otp = getOtpFromEmail(receivedMessages[0]);
+
+        for (int i = 0; i < OtpServiceImpl.OTP_MAX_VERIFICATION_ATTEMPTS; i++) {
+            var wrongOtp = getRandomOtp();
+            while (wrongOtp.equals(otp)) {
+                wrongOtp = getRandomOtp();
+            }
+
+            mockMvc.perform(MockMvcRequestBuilders
+                    .post("/api/users/verify-otp")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(JsonUtil.toJson(new OtpVerificationRequest(accountNumber, wrongOtp))))
+                    .andExpect(MockMvcResultMatchers.status().isUnauthorized());
+        }
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/verify-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new OtpVerificationRequest(accountNumber, otp))))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.OTP_INVALID_ERROR.getMessage()));
+    }
+
+    @Test
+    public void test_verify_otp_cannot_be_reused() throws Exception {
+        val user = createAndRegisterUser();
+        val accountNumber = userRepository
+                .findByEmail(user.getEmail())
+                .get()
+                .getAccount()
+                .getAccountNumber();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/generate-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new OtpRequest(accountNumber))))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        val receivedMessages = GreenMailJavaMailSender.getReceivedMessagesForDomain(user.getEmail());
+        val otpVerificationRequest = new OtpVerificationRequest(accountNumber, getOtpFromEmail(receivedMessages[0]));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/verify-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(otpVerificationRequest)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/verify-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(otpVerificationRequest)))
+                .andExpect(MockMvcResultMatchers.status().isUnauthorized())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.OTP_INVALID_ERROR.getMessage()));
+    }
+
+    @Test
+    public void test_generate_otp_limit_applies_after_exhausting_attempts() throws Exception {
+        val user = createAndRegisterUser();
+        val accountNumber = userRepository
+                .findByEmail(user.getEmail())
+                .get()
+                .getAccount()
+                .getAccountNumber();
+
+        for (int round = 0; round < OtpServiceImpl.OTP_ATTEMPTS_LIMIT; round++) {
+            mockMvc.perform(MockMvcRequestBuilders
+                    .post("/api/users/generate-otp")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(JsonUtil.toJson(new OtpRequest(accountNumber))))
+                    .andExpect(MockMvcResultMatchers.status().isOk());
+
+            for (int i = 0; i < OtpServiceImpl.OTP_MAX_VERIFICATION_ATTEMPTS; i++) {
+                mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/users/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(JsonUtil.toJson(new OtpVerificationRequest(accountNumber, "000000"))))
+                        .andExpect(MockMvcResultMatchers.status().isUnauthorized());
+            }
+        }
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/generate-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new OtpRequest(accountNumber))))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest());
     }
 
     @Test
