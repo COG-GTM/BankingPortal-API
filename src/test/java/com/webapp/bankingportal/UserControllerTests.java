@@ -1,5 +1,7 @@
 package com.webapp.bankingportal;
 
+import java.util.HashMap;
+
 import org.hamcrest.core.StringContains;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -11,10 +13,14 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import com.jayway.jsonpath.JsonPath;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
 import com.webapp.bankingportal.dto.PinRequest;
+import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.service.TokenService;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
@@ -25,6 +31,12 @@ public class UserControllerTests extends BaseTest {
 
     @Autowired
     private TokenService tokenService;
+
+    @Autowired
+    private AccountRepository accountRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Test
     public void test_register_user_with_valid_details() throws Exception {
@@ -721,6 +733,182 @@ public class UserControllerTests extends BaseTest {
                 .andExpect(MockMvcResultMatchers.status().isUnauthorized())
                 .andExpect(MockMvcResultMatchers.content()
                         .string("Bad credentials"));
+    }
+
+    @Test
+    public void test_update_user_cannot_overwrite_another_user_via_id() throws Exception {
+        val victim = createAndRegisterUser();
+        val victimEntity = userRepository.findByEmail(victim.getEmail()).get();
+
+        val attackerDetails = createAndLoginUser();
+        val attackerEntity = userRepository.findByEmail(attackerDetails.get("email")).get();
+
+        val updatePayload = new HashMap<String, Object>();
+        updatePayload.put("id", victimEntity.getId());
+        updatePayload.put("name", faker.name().fullName());
+        updatePayload.put("email", faker.internet().safeEmailAddress());
+        updatePayload.put("address", faker.address().fullAddress());
+        updatePayload.put("countryCode", attackerDetails.get("countryCode"));
+        updatePayload.put("phoneNumber", getRandomPhoneNumber(attackerDetails.get("countryCode")));
+        updatePayload.put("password", attackerDetails.get("password"));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + attackerDetails.get("token"))
+                .content(JsonUtil.toJson(updatePayload)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        val victimAfter = userRepository.findById(victimEntity.getId()).get();
+        Assertions.assertEquals(victim.getEmail(), victimAfter.getEmail());
+        Assertions.assertEquals(victim.getName(), victimAfter.getName());
+
+        val attackerAfter = userRepository.findById(attackerEntity.getId()).get();
+        Assertions.assertEquals(updatePayload.get("email"), attackerAfter.getEmail());
+    }
+
+    @Test
+    public void test_update_user_cannot_tamper_own_account_balance_or_pin() throws Exception {
+        val userDetails = createAndLoginUserWithInitialBalance(100);
+        val userEntity = userRepository.findByEmail(userDetails.get("email")).get();
+        val accountBefore = accountRepository.findByAccountNumber(userDetails.get("accountNumber"));
+        val pinHashBefore = accountBefore.getPin();
+
+        val accountPayload = new HashMap<String, Object>();
+        accountPayload.put("id", accountBefore.getId());
+        accountPayload.put("accountNumber", accountBefore.getAccountNumber());
+        accountPayload.put("balance", 1000000);
+        accountPayload.put("pin", passwordEncoder.encode("1234"));
+        accountPayload.put("user", java.util.Map.of("id", userEntity.getId()));
+
+        val updatePayload = updatePayloadFor(userDetails);
+        updatePayload.put("account", accountPayload);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + userDetails.get("token"))
+                .content(JsonUtil.toJson(updatePayload)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        userRepository.flush();
+        entityManager.clear();
+
+        val accountAfter = accountRepository.findByAccountNumber(userDetails.get("accountNumber"));
+        Assertions.assertEquals(100, accountAfter.getBalance());
+        Assertions.assertEquals(pinHashBefore, accountAfter.getPin());
+        Assertions.assertEquals(accountBefore.getId(), accountAfter.getId());
+    }
+
+    @Test
+    public void test_update_user_cannot_tamper_another_users_account() throws Exception {
+        val victimDetails = createAndLoginUserWithInitialBalance(500);
+        val victimEntity = userRepository.findByEmail(victimDetails.get("email")).get();
+        val victimAccountBefore = accountRepository.findByAccountNumber(victimDetails.get("accountNumber"));
+        val victimPinHashBefore = victimAccountBefore.getPin();
+
+        val attackerDetails = createAndLoginUser();
+
+        val accountPayload = new HashMap<String, Object>();
+        accountPayload.put("id", victimAccountBefore.getId());
+        accountPayload.put("accountNumber", getRandomAccountNumber());
+        accountPayload.put("balance", 0);
+        accountPayload.put("pin", passwordEncoder.encode("1234"));
+        accountPayload.put("user", java.util.Map.of("id", victimEntity.getId()));
+
+        val updatePayload = updatePayloadFor(attackerDetails);
+        updatePayload.put("account", accountPayload);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + attackerDetails.get("token"))
+                .content(JsonUtil.toJson(updatePayload)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        userRepository.flush();
+        entityManager.clear();
+
+        val victimAccountAfter = accountRepository.findByAccountNumber(victimDetails.get("accountNumber"));
+        Assertions.assertNotNull(victimAccountAfter);
+        Assertions.assertEquals(500, victimAccountAfter.getBalance());
+        Assertions.assertEquals(victimPinHashBefore, victimAccountAfter.getPin());
+        Assertions.assertEquals(victimEntity.getId(), victimAccountAfter.getUser().getId());
+
+        val attackerAccountAfter = accountRepository.findByAccountNumber(attackerDetails.get("accountNumber"));
+        Assertions.assertNotNull(attackerAccountAfter);
+    }
+
+    @Test
+    public void test_update_user_with_email_of_another_user() throws Exception {
+        val otherUser = createAndRegisterUser();
+        val userDetails = createAndLoginUser();
+
+        val updatePayload = updatePayloadFor(userDetails);
+        updatePayload.put("email", otherUser.getEmail());
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + userDetails.get("token"))
+                .content(JsonUtil.toJson(updatePayload)))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.USER_EMAIL_ALREADY_EXISTS_ERROR.getMessage()));
+    }
+
+    @Test
+    public void test_update_user_with_phone_number_of_another_user() throws Exception {
+        val userDetails = createAndLoginUser();
+        val otherUser = createUser();
+        otherUser.setCountryCode(userDetails.get("countryCode"));
+        otherUser.setPhoneNumber(getRandomPhoneNumber(userDetails.get("countryCode")));
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(otherUser)))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        val updatePayload = updatePayloadFor(userDetails);
+        updatePayload.put("phoneNumber", otherUser.getPhoneNumber());
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + userDetails.get("token"))
+                .content(JsonUtil.toJson(updatePayload)))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.USER_PHONE_NUMBER_ALREADY_EXISTS_ERROR.getMessage()));
+    }
+
+    @Test
+    public void test_update_user_keeping_own_email_and_phone_number() throws Exception {
+        val userDetails = createAndLoginUser();
+
+        val updatePayload = updatePayloadFor(userDetails);
+        updatePayload.put("email", userDetails.get("email"));
+        updatePayload.put("phoneNumber", userDetails.get("phoneNumber"));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + userDetails.get("token"))
+                .content(JsonUtil.toJson(updatePayload)))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.email").value(userDetails.get("email")))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.name").value(updatePayload.get("name")));
+    }
+
+    private static HashMap<String, Object> updatePayloadFor(HashMap<String, String> userDetails) {
+        val updatePayload = new HashMap<String, Object>();
+        updatePayload.put("name", faker.name().fullName());
+        updatePayload.put("email", faker.internet().safeEmailAddress());
+        updatePayload.put("address", faker.address().fullAddress());
+        updatePayload.put("countryCode", userDetails.get("countryCode"));
+        updatePayload.put("phoneNumber", getRandomPhoneNumber(userDetails.get("countryCode")));
+        updatePayload.put("password", userDetails.get("password"));
+        return updatePayload;
     }
 
     @Test
