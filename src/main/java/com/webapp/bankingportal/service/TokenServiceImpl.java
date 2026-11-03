@@ -5,6 +5,7 @@ import static org.springframework.security.core.userdetails.User.withUsername;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 import java.util.function.Function;
 
 import io.jsonwebtoken.*;
@@ -65,6 +66,7 @@ public class TokenServiceImpl implements TokenService {
     }
     private String doGenerateToken(UserDetails userDetails, Date expiry) {
         return Jwts.builder().setSubject(userDetails.getUsername())
+                .setId(UUID.randomUUID().toString())
                 .setIssuedAt(new Date())
                 .setExpiration(expiry)
                 .signWith(key(), SignatureAlgorithm.HS512).compact();
@@ -157,6 +159,20 @@ public class TokenServiceImpl implements TokenService {
         if (tokenRepository.findByToken(token) != null) {
             tokenRepository.deleteByToken(token);
         }
+    }
+
+    @Override
+    @Transactional
+    public void invalidateAllTokens(String accountNumber) {
+        val revoked = tokenRepository.deleteAllByAccountNumber(accountNumber);
+        log.info("Revoked {} session token(s) for account: {}", revoked, accountNumber);
+    }
+
+    @Override
+    @Transactional
+    public void invalidateOtherTokens(String accountNumber, String currentToken) {
+        val revoked = tokenRepository.deleteAllByAccountNumberExceptToken(accountNumber, currentToken);
+        log.info("Revoked {} other session token(s) for account: {}", revoked, accountNumber);
     }
 
 }
