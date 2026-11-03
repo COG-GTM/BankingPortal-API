@@ -6,12 +6,19 @@ import lombok.val;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.webapp.bankingportal.exception.IncorrectPinException;
 import com.webapp.bankingportal.exception.InsufficientBalanceException;
 import com.webapp.bankingportal.exception.InvalidAmountException;
 import com.webapp.bankingportal.exception.InvalidPinException;
@@ -517,6 +524,46 @@ public class AccountServiceTests extends BaseTest {
         Assertions.assertThrows(PinLockedException.class,
                 () -> accountService.fundTransfer(accountNumber, getRandomAccountNumber(), getWrongPin(pin), 100.0));
         Assertions.assertNotNull(accountRepository.findByAccountNumber(accountNumber).getPinLockedUntil());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void test_concurrent_wrong_pins_cannot_exceed_max_attempts() throws Exception {
+        val accountDetails = createAccountWithPin(passwordEncoder, userRepository, accountService);
+        val accountNumber = accountDetails.get("accountNumber");
+        val pin = accountDetails.get("pin");
+
+        val attempts = 20;
+        val pool = Executors.newFixedThreadPool(attempts);
+        val start = new CountDownLatch(1);
+        val incorrect = new AtomicInteger();
+        val locked = new AtomicInteger();
+        val futures = new ArrayList<Future<?>>();
+        for (int i = 0; i < attempts; i++) {
+            futures.add(pool.submit(() -> {
+                start.await();
+                try {
+                    accountService.cashDeposit(accountNumber, getWrongPin(pin), 100.0);
+                } catch (IncorrectPinException e) {
+                    incorrect.incrementAndGet();
+                } catch (PinLockedException e) {
+                    locked.incrementAndGet();
+                }
+                return null;
+            }));
+        }
+
+        start.countDown();
+        for (val future : futures) {
+            future.get(60, TimeUnit.SECONDS);
+        }
+        pool.shutdown();
+
+        Assertions.assertEquals(2, incorrect.get());
+        Assertions.assertEquals(attempts - 2, locked.get());
+        Assertions.assertThrows(PinLockedException.class,
+                () -> accountService.cashDeposit(accountNumber, pin, 100.0));
+        Assertions.assertEquals(0.0, accountRepository.findByAccountNumber(accountNumber).getBalance());
     }
 
 }

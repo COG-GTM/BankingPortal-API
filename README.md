@@ -67,6 +67,7 @@ PIN-protected operations (`/api/account/deposit`, `/api/account/withdraw`, `/api
 - After `pin.lockout.max-attempts` (default `3`) consecutive incorrect PINs, the PIN is locked for `pin.lockout.duration-minutes` (default `30`). The request that triggers the lock, and every PIN-protected request while locked (even with the correct PIN), returns `423 Locked`.
 - A successful PIN entry resets the failed-attempt counter to zero.
 - Empty PINs are rejected without counting as a failed attempt.
+- Each attempt is reserved with a single conditional `UPDATE` before the PIN is compared, so parallel requests cannot get more than `pin.lockout.max-attempts` guesses in before the lock applies.
 
 ### Unlocking a PIN
 

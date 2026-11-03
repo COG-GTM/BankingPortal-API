@@ -86,58 +86,41 @@ public class AccountServiceImpl implements AccountService {
             throw new UnauthorizedException(ApiMessages.PIN_NOT_CREATED.getMessage());
         }
 
-        ensurePinNotLocked(account);
-
         if (pin == null || pin.isEmpty()) {
             throw new UnauthorizedException(ApiMessages.PIN_EMPTY_ERROR.getMessage());
         }
 
+        accountRepository.clearExpiredPinLock(accountNumber, new Date());
+        if (accountRepository.reservePinAttempt(accountNumber, maxFailedPinAttempts) == 0) {
+            throw pinLockedException(accountNumber);
+        }
+
         if (!passwordEncoder.matches(pin, account.getPin())) {
-            recordFailedPinAttempt(account);
-        }
+            val lockedUntil = new Date(
+                    System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(pinLockoutDurationMinutes));
+            if (accountRepository.lockPinIfAttemptsExhausted(accountNumber, maxFailedPinAttempts, lockedUntil) > 0) {
+                log.warn("PIN locked for account {} after {} failed attempts", accountNumber, maxFailedPinAttempts);
+            }
 
-        if (account.getFailedPinAttempts() > 0 || account.getPinLockedUntil() != null) {
-            resetPinLockout(account);
-        }
-    }
+            if (accountRepository.findPinLockedUntil(accountNumber) != null) {
+                throw pinLockedException(accountNumber);
+            }
 
-    private void ensurePinNotLocked(Account account) {
-        val lockedUntil = account.getPinLockedUntil();
-        if (lockedUntil == null) {
-            return;
-        }
-
-        val remainingMillis = lockedUntil.getTime() - System.currentTimeMillis();
-        if (remainingMillis <= 0) {
-            resetPinLockout(account);
-            return;
-        }
-
-        val remainingMinutes = TimeUnit.MILLISECONDS.toMinutes(remainingMillis - 1) + 1;
-        throw new PinLockedException(String.format(ApiMessages.PIN_LOCKED_ERROR.getMessage(), remainingMinutes));
-    }
-
-    private void recordFailedPinAttempt(Account account) {
-        val failedAttempts = account.getFailedPinAttempts() + 1;
-        if (failedAttempts < maxFailedPinAttempts) {
-            account.setFailedPinAttempts(failedAttempts);
-            accountRepository.save(account);
             throw new IncorrectPinException(ApiMessages.PIN_INVALID_ERROR.getMessage());
         }
 
-        log.warn("PIN locked for account {} after {} failed attempts", account.getAccountNumber(), failedAttempts);
-        account.setFailedPinAttempts(0);
-        account.setPinLockedUntil(
-                new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(pinLockoutDurationMinutes)));
-        accountRepository.save(account);
-        throw new PinLockedException(
-                String.format(ApiMessages.PIN_LOCKED_ERROR.getMessage(), pinLockoutDurationMinutes));
+        accountRepository.resetPinAttempts(accountNumber);
     }
 
-    private void resetPinLockout(Account account) {
-        account.setFailedPinAttempts(0);
-        account.setPinLockedUntil(null);
-        accountRepository.save(account);
+    private PinLockedException pinLockedException(String accountNumber) {
+        val lockedUntil = accountRepository.findPinLockedUntil(accountNumber);
+        long remainingMinutes = pinLockoutDurationMinutes;
+        if (lockedUntil != null) {
+            val remainingMillis = Math.max(lockedUntil.getTime() - System.currentTimeMillis(), 1);
+            remainingMinutes = TimeUnit.MILLISECONDS.toMinutes(remainingMillis - 1) + 1;
+        }
+
+        return new PinLockedException(String.format(ApiMessages.PIN_LOCKED_ERROR.getMessage(), remainingMinutes));
     }
 
     private void validatePassword(String accountNumber, String password) {
@@ -176,6 +159,7 @@ public class AccountServiceImpl implements AccountService {
         accountRepository.save(account);
     }
 
+    @Transactional(noRollbackFor = { IncorrectPinException.class, PinLockedException.class })
     @Override
     public void updatePin(String accountNumber, String oldPin, String password, String newPin) {
         log.info("Updating PIN for account: {}", accountNumber);
@@ -207,7 +191,7 @@ public class AccountServiceImpl implements AccountService {
         }
 
         log.info("Unlocking PIN for account: {}", accountNumber);
-        resetPinLockout(account);
+        accountRepository.resetPinAttempts(accountNumber);
     }
 
     private void validateAmount(double amount) {
