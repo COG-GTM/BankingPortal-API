@@ -1,6 +1,7 @@
 package com.webapp.bankingportal.entity;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import jakarta.persistence.CascadeType;
@@ -36,6 +37,8 @@ public class Account {
     private String branch = "NIT";
     private String ifscCode = "NIT001";
     private String Pin;
+    private int failedPinAttempts;
+    private Date pinLockedUntil;
 
     @NotNull
     @OneToOne
