@@ -597,6 +597,38 @@ public class UserControllerTests extends BaseTest {
     }
 
     @Test
+    public void test_generate_otp_limit_applies_after_exhausting_attempts() throws Exception {
+        val user = createAndRegisterUser();
+        val accountNumber = userRepository
+                .findByEmail(user.getEmail())
+                .get()
+                .getAccount()
+                .getAccountNumber();
+
+        for (int round = 0; round < OtpServiceImpl.OTP_ATTEMPTS_LIMIT; round++) {
+            mockMvc.perform(MockMvcRequestBuilders
+                    .post("/api/users/generate-otp")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(JsonUtil.toJson(new OtpRequest(accountNumber))))
+                    .andExpect(MockMvcResultMatchers.status().isOk());
+
+            for (int i = 0; i < OtpServiceImpl.OTP_MAX_VERIFICATION_ATTEMPTS; i++) {
+                mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/users/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(JsonUtil.toJson(new OtpVerificationRequest(accountNumber, "000000"))))
+                        .andExpect(MockMvcResultMatchers.status().isUnauthorized());
+            }
+        }
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/generate-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(new OtpRequest(accountNumber))))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest());
+    }
+
+    @Test
     public void test_verify_otp_with_invalid_otp() throws Exception {
         val user = createAndRegisterUser();
         val accountNumber = userRepository

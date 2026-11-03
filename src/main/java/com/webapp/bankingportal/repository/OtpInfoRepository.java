@@ -17,10 +17,12 @@ public interface OtpInfoRepository extends JpaRepository<OtpInfo, Long> {
 
     @Modifying(flushAutomatically = true)
     @Query("UPDATE OtpInfo o SET o.verificationAttempts = o.verificationAttempts + 1 "
-            + "WHERE o.id = :id AND o.verificationAttempts < :maxAttempts")
-    int incrementVerificationAttempts(@Param("id") Long id, @Param("maxAttempts") int maxAttempts);
+            + "WHERE o.id = :id AND o.otp = :otp AND o.verificationAttempts < :maxAttempts")
+    int incrementVerificationAttempts(@Param("id") Long id, @Param("otp") String otp,
+            @Param("maxAttempts") int maxAttempts);
 
     @Modifying(flushAutomatically = true)
-    @Query("DELETE FROM OtpInfo o WHERE o.id = :id")
-    int deleteOtpInfoById(@Param("id") Long id);
+    @Query("UPDATE OtpInfo o SET o.otp = NULL, o.verificationAttempts = :maxAttempts "
+            + "WHERE o.id = :id AND o.otp = :otp")
+    int consumeOtp(@Param("id") Long id, @Param("otp") String otp, @Param("maxAttempts") int maxAttempts);
 }

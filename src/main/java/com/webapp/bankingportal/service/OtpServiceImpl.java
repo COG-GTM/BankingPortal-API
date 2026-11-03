@@ -55,8 +55,11 @@ public class OtpServiceImpl implements OtpService {
 
         validateOtpWithinRetryLimit(existingOtpInfo);
 
-        if (isOtpExpired(existingOtpInfo)) {
-            return generateNewOTP(accountNumber);
+        // Replace the code in place so the row, and with it the generation retry
+        // limit, survives across generate/verify cycles.
+        if (isOtpUnusable(existingOtpInfo) || isOtpExpired(existingOtpInfo)) {
+            incrementOtpAttempts(accountNumber);
+            return regenerateOTP(existingOtpInfo);
         }
 
         // Existing OTP is not expired
@@ -148,6 +151,16 @@ public class OtpServiceImpl implements OtpService {
         return otp;
     }
 
+    private String regenerateOTP(OtpInfo otpInfo) {
+        val otp = String.valueOf(100_000 + SECURE_RANDOM.nextInt(900_000));
+        otpInfo.setOtp(otp);
+        otpInfo.setGeneratedAt(LocalDateTime.now());
+        otpInfo.setVerificationAttempts(0);
+        otpInfoRepository.save(otpInfo);
+
+        return otp;
+    }
+
     @Override
     public CompletableFuture<Void> sendOTPByEmail(String email, String name, String accountNumber, String otp) {
         val emailText = emailService.getOtpLoginEmailTemplate(name, "xxx" + accountNumber.substring(3), otp);
@@ -158,7 +171,7 @@ public class OtpServiceImpl implements OtpService {
     @Transactional(noRollbackFor = InvalidOtpException.class)
     public boolean validateOTP(String accountNumber, String otp) {
         val otpInfo = otpInfoRepository.findByAccountNumber(accountNumber);
-        if (otpInfo == null || otp == null) {
+        if (otpInfo == null || otp == null || isOtpUnusable(otpInfo)) {
             throw new InvalidOtpException(ApiMessages.OTP_INVALID_ERROR.getMessage());
         }
 
@@ -168,21 +181,15 @@ public class OtpServiceImpl implements OtpService {
 
         // Atomically reserve an attempt so concurrent guesses cannot exceed the limit.
         val reserved = otpInfoRepository.incrementVerificationAttempts(
-                otpInfo.getId(), OTP_MAX_VERIFICATION_ATTEMPTS);
-        if (reserved == 0) {
-            otpInfoRepository.deleteOtpInfoById(otpInfo.getId());
+                otpInfo.getId(), otpInfo.getOtp(), OTP_MAX_VERIFICATION_ATTEMPTS);
+        if (reserved == 0 || !otpMatches(otpInfo.getOtp(), otp)) {
             throw new InvalidOtpException(ApiMessages.OTP_INVALID_ERROR.getMessage());
         }
 
-        if (!otpMatches(otpInfo.getOtp(), otp)) {
-            if (otpInfo.getVerificationAttempts() + 1 >= OTP_MAX_VERIFICATION_ATTEMPTS) {
-                otpInfoRepository.deleteOtpInfoById(otpInfo.getId());
-            }
-            throw new InvalidOtpException(ApiMessages.OTP_INVALID_ERROR.getMessage());
-        }
-
-        // Single use: consume the code on successful verification.
-        if (otpInfoRepository.deleteOtpInfoById(otpInfo.getId()) == 0) {
+        // Single use: only one concurrent request can consume the code.
+        val consumed = otpInfoRepository.consumeOtp(
+                otpInfo.getId(), otpInfo.getOtp(), OTP_MAX_VERIFICATION_ATTEMPTS);
+        if (consumed == 0) {
             throw new InvalidOtpException(ApiMessages.OTP_INVALID_ERROR.getMessage());
         }
 
@@ -195,15 +202,14 @@ public class OtpServiceImpl implements OtpService {
                 actual.getBytes(StandardCharsets.UTF_8));
     }
 
+    private static boolean isOtpUnusable(OtpInfo otpInfo) {
+        return otpInfo.getOtp() == null
+                || otpInfo.getVerificationAttempts() >= OTP_MAX_VERIFICATION_ATTEMPTS;
+    }
+
     private boolean isOtpExpired(OtpInfo otpInfo) {
         val now = LocalDateTime.now();
-        val generatedAt = otpInfo.getGeneratedAt();
-        val expired = generatedAt.isBefore(now.minusMinutes(OTP_EXPIRY_MINUTES));
-        if (expired) {
-            otpInfoRepository.delete(otpInfo);
-        }
-
-        return expired;
+        return otpInfo.getGeneratedAt().isBefore(now.minusMinutes(OTP_EXPIRY_MINUTES));
     }
 
 }
