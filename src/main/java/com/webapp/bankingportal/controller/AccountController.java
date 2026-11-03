@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.transaction.annotation.Transactional;
 import com.webapp.bankingportal.dto.AmountRequest;
 import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.dto.PinRequest;
@@ -48,6 +49,7 @@ public class AccountController {
     }
 
     @PostMapping("/pin/update")
+    @Transactional
     @Cacheable(value = "idempotency", key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/pin/update' + ':' + (#pinUpdateRequest).hashCode()")
     public ResponseEntity<String> updatePIN(@RequestBody PinUpdateRequest pinUpdateRequest,
             @RequestHeader("Authorization") String authorization) {

@@ -5,6 +5,7 @@ import static org.springframework.security.core.userdetails.User.withUsername;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 import java.util.function.Function;
 
 import io.jsonwebtoken.*;
@@ -65,6 +66,7 @@ public class TokenServiceImpl implements TokenService {
     }
     private String doGenerateToken(UserDetails userDetails, Date expiry) {
         return Jwts.builder().setSubject(userDetails.getUsername())
+                .setId(UUID.randomUUID().toString())
                 .setIssuedAt(new Date())
                 .setExpiration(expiry)
                 .signWith(key(), SignatureAlgorithm.HS512).compact();

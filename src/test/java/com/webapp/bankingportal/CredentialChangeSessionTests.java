@@ -51,7 +51,6 @@ public class CredentialChangeSessionTests extends BaseTest {
         expectDashboardStatus(oldToken, 200);
 
         val newPassword = getRandomPassword();
-        Thread.sleep(1100);
         mockMvc.perform(MockMvcRequestBuilders
                 .post("/api/auth/password-reset")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -89,7 +88,6 @@ public class CredentialChangeSessionTests extends BaseTest {
         val userDetails = createAndLoginUserWithPin();
         val accountNumber = userDetails.get("accountNumber");
         val currentToken = userDetails.get("token");
-        Thread.sleep(1100);
         val otherToken = login(accountNumber, userDetails.get("password"));
         expectDashboardStatus(otherToken, 200);
 
