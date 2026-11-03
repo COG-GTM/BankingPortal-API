@@ -724,6 +724,36 @@ public class UserControllerTests extends BaseTest {
     }
 
     @Test
+    public void test_update_user_ignores_account_in_request_body() throws Exception {
+        val userDetails = createAndLoginUser();
+        val existingUser = userRepository.findByEmail(userDetails.get("email")).get();
+        val accountId = existingUser.getAccount().getId();
+        val originalBalance = existingUser.getAccount().getBalance();
+
+        val updatedUser = createUser();
+        updatedUser.setPassword(userDetails.get("password"));
+        updatedUser.setPhoneNumber(getRandomPhoneNumber(userDetails.get("countryCode")));
+
+        val body = JsonUtil.toJson(updatedUser).replaceFirst("\\}$",
+                String.format(",\"id\":%d,\"account\":{\"id\":%d,\"accountNumber\":\"%s\",\"balance\":999999,"
+                        + "\"pin\":\"tampered\",\"user\":{\"id\":%d}}}",
+                        existingUser.getId() + 1000, accountId, userDetails.get("accountNumber"), existingUser.getId()));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + userDetails.get("token"))
+                .content(body))
+                .andExpect(MockMvcResultMatchers.status().isOk());
+
+        val storedUser = userRepository.findByEmail(updatedUser.getEmail()).get();
+        Assertions.assertEquals(existingUser.getId(), storedUser.getId());
+        Assertions.assertEquals(accountId, storedUser.getAccount().getId());
+        Assertions.assertEquals(originalBalance, storedUser.getAccount().getBalance());
+        Assertions.assertNull(storedUser.getAccount().getPin());
+    }
+
+    @Test
     public void test_update_user_without_authentication() throws Exception {
         val updatedUser = createUser();
 

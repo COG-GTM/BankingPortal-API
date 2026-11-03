@@ -9,6 +9,23 @@
 
 - [https://github.com/abhi9720/BankingPortal-API/wiki](https://github.com/abhi9720/BankingPortal-API/wiki)
 
+### Update Profile (`POST /api/users/update`)
+
+Requires a Bearer token. Only these fields are accepted (all required); `password` must be the caller's current password and is used only for re-authentication:
+
+```json
+{
+  "name": "...",
+  "email": "...",
+  "countryCode": "US",
+  "phoneNumber": "...",
+  "address": "...",
+  "password": "<current password>"
+}
+```
+
+Any other fields (e.g. `id`, `account`, balance or PIN) are ignored. Account details cannot be changed through this endpoint. Email and phone number must not belong to another user.
+
 ## Banking Portal UI
 
 - [https://github.com/abhi9720/BankingPortal-UI](https://github.com/abhi9720/BankingPortal-UI)
