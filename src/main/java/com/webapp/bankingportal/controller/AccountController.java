@@ -37,7 +37,7 @@ public class AccountController {
     }
 
     @PostMapping("/pin/create")
-    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/pin/create' + ':' + (#idempotencyKey != null ? 'key:' + #idempotencyKey : 'body:' + T(java.util.Objects).hash(#pinRequest.password(), #pinRequest.pin()))")
+    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.IdempotencyKey).of('/api/account/pin/create', #idempotencyKey, #pinRequest.password(), #pinRequest.pin())")
     public ResponseEntity<String> createPIN(@RequestBody PinRequest pinRequest,
             @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey) {
         accountService.createPin(
@@ -49,7 +49,7 @@ public class AccountController {
     }
 
     @PostMapping("/pin/update")
-    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/pin/update' + ':' + (#idempotencyKey != null ? 'key:' + #idempotencyKey : 'body:' + T(java.util.Objects).hash(#pinUpdateRequest.oldPin(), #pinUpdateRequest.password(), #pinUpdateRequest.newPin()))")
+    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.IdempotencyKey).of('/api/account/pin/update', #idempotencyKey, #pinUpdateRequest.oldPin(), #pinUpdateRequest.password(), #pinUpdateRequest.newPin())")
     public ResponseEntity<String> updatePIN(@RequestBody PinUpdateRequest pinUpdateRequest,
             @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey) {
         accountService.updatePin(
@@ -62,7 +62,7 @@ public class AccountController {
     }
 
     @PostMapping("/deposit")
-    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/deposit' + ':' + (#idempotencyKey != null ? 'key:' + #idempotencyKey : 'body:' + T(java.util.Objects).hash(#amountRequest.pin(), #amountRequest.amount()))")
+    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.IdempotencyKey).of('/api/account/deposit', #idempotencyKey, #amountRequest.pin(), #amountRequest.amount())")
     public ResponseEntity<String> cashDeposit(@RequestBody AmountRequest amountRequest,
             @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey) {
         accountService.cashDeposit(
@@ -74,7 +74,7 @@ public class AccountController {
     }
 
     @PostMapping("/withdraw")
-    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/withdraw' + ':' + (#idempotencyKey != null ? 'key:' + #idempotencyKey : 'body:' + T(java.util.Objects).hash(#amountRequest.pin(), #amountRequest.amount()))")
+    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.IdempotencyKey).of('/api/account/withdraw', #idempotencyKey, #amountRequest.pin(), #amountRequest.amount())")
     public ResponseEntity<String> cashWithdrawal(@RequestBody AmountRequest amountRequest,
             @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey) {
         accountService.cashWithdrawal(
@@ -86,7 +86,7 @@ public class AccountController {
     }
 
     @PostMapping("/fund-transfer")
-    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.LoggedinUser).getAccountNumber() + ':' + '/api/account/fund-transfer' + ':' + (#idempotencyKey != null ? 'key:' + #idempotencyKey : 'body:' + T(java.util.Objects).hash(#fundTransferRequest.targetAccountNumber(), #fundTransferRequest.pin(), #fundTransferRequest.amount()))")
+    @Cacheable(value = "idempotency", sync = true, key = "T(com.webapp.bankingportal.util.IdempotencyKey).of('/api/account/fund-transfer', #idempotencyKey, #fundTransferRequest.targetAccountNumber(), #fundTransferRequest.pin(), #fundTransferRequest.amount())")
     public ResponseEntity<String> fundTransfer(@RequestBody FundTransferRequest fundTransferRequest,
             @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey) {
         accountService.fundTransfer(
