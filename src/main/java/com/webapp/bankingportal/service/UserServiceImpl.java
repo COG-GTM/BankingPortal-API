@@ -15,6 +15,7 @@ import org.springframework.web.servlet.ModelAndView;
 import com.webapp.bankingportal.dto.LoginRequest;
 import com.webapp.bankingportal.dto.OtpRequest;
 import com.webapp.bankingportal.dto.OtpVerificationRequest;
+import com.webapp.bankingportal.dto.UpdateUserRequest;
 import com.webapp.bankingportal.dto.UserResponse;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.exception.InvalidTokenException;
@@ -86,11 +87,11 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity<String> updateUser(User updatedUser) {
+    public ResponseEntity<String> updateUser(UpdateUserRequest updateUserRequest) {
         val accountNumber = LoggedinUser.getAccountNumber();
-        authenticateUser(accountNumber, updatedUser.getPassword());
+        authenticateUser(accountNumber, updateUserRequest.password());
         val existingUser = getUserByAccountNumber(accountNumber);
-        updateUserDetails(existingUser, updatedUser);
+        updateUserDetails(existingUser, updateUserRequest);
         val savedUser = saveUser(existingUser);
         return ResponseEntity.ok(JsonUtil.toJson(new UserResponse(savedUser)));
     }
@@ -210,10 +211,20 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private void updateUserDetails(User existingUser, User updatedUser) {
-        ValidationUtil.validateUserDetails(updatedUser);
-        updatedUser.setPassword(existingUser.getPassword());
-        userMapper.updateUser(updatedUser, existingUser);
+    private void updateUserDetails(User existingUser, UpdateUserRequest updateUserRequest) {
+        ValidationUtil.validateUserDetails(userMapper.toUser(updateUserRequest));
+
+        if (!updateUserRequest.email().equals(existingUser.getEmail())
+                && validationUtil.doesEmailExist(updateUserRequest.email())) {
+            throw new UserInvalidException(ApiMessages.USER_EMAIL_ALREADY_EXISTS_ERROR.getMessage());
+        }
+
+        if (!updateUserRequest.phoneNumber().equals(existingUser.getPhoneNumber())
+                && validationUtil.doesPhoneNumberExist(updateUserRequest.phoneNumber())) {
+            throw new UserInvalidException(ApiMessages.USER_PHONE_NUMBER_ALREADY_EXISTS_ERROR.getMessage());
+        }
+
+        userMapper.updateUser(updateUserRequest, existingUser);
     }
 
     private CompletableFuture<Boolean> sendLoginNotification(User user, String ip) {
