@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.webapp.bankingportal.service.OtpServiceImpl;
 
 import lombok.val;
 
@@ -20,7 +21,9 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
         val cacheManager = new CaffeineCacheManager();
-        cacheManager.setCacheNames(List.of("otpAttempts")); // Define the cache names
+        cacheManager.setCacheNames(List.of(
+                OtpServiceImpl.OTP_ATTEMPTS_CACHE,
+                OtpServiceImpl.OTP_LIMIT_REACHED_TIME_CACHE)); // Define the cache names
         cacheManager.setCaffeine(caffeineConfig());
         return cacheManager;
     }
@@ -28,7 +31,7 @@ public class CacheConfig {
     public Caffeine<Object, Object> caffeineConfig() {
         return Caffeine.newBuilder()
                 .expireAfterWrite(15, TimeUnit.MINUTES) // Cache entries expire after 15 minutes
-                .maximumSize(100) // Maximum of 100 entries in the cache
+                .maximumSize(10_000) // Maximum of 10,000 entries per cache
                 .recordStats(); // For monitoring cache statistics (optional)
     }
 
