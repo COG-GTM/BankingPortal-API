@@ -1,5 +1,7 @@
 package com.webapp.bankingportal.util;
 
+import java.util.regex.Pattern;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -25,7 +27,13 @@ public class ValidationUtil {
     public static final Logger log = LoggerFactory.getLogger(ValidationUtil.class);
     public static final PhoneNumberUtil phoneNumberUtil = PhoneNumberUtil.getInstance();
 
+    private static final Pattern NAME_PATTERN = Pattern.compile("^\\p{L}[\\p{L}\\p{M} .,'\\-]{0,99}$");
+
     private final UserRepository userRepository;
+
+    public static boolean isValidName(String name) {
+        return name != null && NAME_PATTERN.matcher(name).matches();
+    }
 
     public static boolean isValidEmail(String identifier) {
         try {
@@ -149,6 +157,10 @@ public class ValidationUtil {
 
     public static void validateUserDetails(User user) {
         validateUserDetailsNotEmpty(user);
+
+        if (!isValidName(user.getName())) {
+            throw new UserInvalidException(ApiMessages.USER_NAME_INVALID_ERROR.getMessage());
+        }
 
         if (!isValidEmail(user.getEmail())) {
             throw new UserInvalidException(String.format(ApiMessages.USER_EMAIL_ADDRESS_INVALID_ERROR.getMessage(), user.getEmail()));

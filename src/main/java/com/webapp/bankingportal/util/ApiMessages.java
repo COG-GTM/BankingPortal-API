@@ -59,6 +59,7 @@ public enum ApiMessages {
     USER_EMAIL_EMPTY_ERROR("Email cannot be empty"),
     USER_LOGOUT_SUCCESS("User logged out successfully %s"),
     USER_NAME_EMPTY_ERROR("Name cannot be empty"),
+    USER_NAME_INVALID_ERROR("Name may only contain letters, spaces, apostrophes, hyphens, periods and commas, and must be at most 100 characters"),
     USER_NOT_FOUND_BY_ACCOUNT("User not found for the given account number: %s"),
     USER_NOT_FOUND_BY_EMAIL("User not found for the given email: %s"),
     USER_NOT_FOUND_BY_IDENTIFIER("User not found for the given identifier: %s"),

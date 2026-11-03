@@ -46,6 +46,34 @@ public class UserControllerTests extends BaseTest {
     }
 
     @Test
+    public void test_register_user_with_html_in_name() throws Exception {
+        val user = createUser();
+        user.setName("<b>Your account is locked</b> <a href=\"https://evil.example\">Verify</a>");
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(user)))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.USER_NAME_INVALID_ERROR.getMessage()));
+    }
+
+    @Test
+    public void test_register_user_with_too_long_name() throws Exception {
+        val user = createUser();
+        user.setName("A".repeat(101));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(JsonUtil.toJson(user)))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.USER_NAME_INVALID_ERROR.getMessage()));
+    }
+
+    @Test
     public void test_register_user_with_missing_name() throws Exception {
         val user = createUser();
         user.setName(null);
@@ -648,6 +676,25 @@ public class UserControllerTests extends BaseTest {
                 .andExpect(MockMvcResultMatchers.status().isBadRequest())
                 .andExpect(MockMvcResultMatchers.content()
                         .string(ApiMessages.USER_NAME_EMPTY_ERROR.getMessage()));
+    }
+
+    @Test
+    public void test_update_user_with_html_in_name() throws Exception {
+        val userDetails = createAndLoginUser();
+
+        val updatedUser = createUser();
+        updatedUser.setName("<a href=\"https://evil.example\">Verify your account</a>");
+        updatedUser.setPassword(userDetails.get("password"));
+        updatedUser.setPhoneNumber(getRandomPhoneNumber(userDetails.get("countryCode")));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/users/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + userDetails.get("token"))
+                .content(JsonUtil.toJson(updatedUser)))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(MockMvcResultMatchers.content()
+                        .string(ApiMessages.USER_NAME_INVALID_ERROR.getMessage()));
     }
 
     @Test
