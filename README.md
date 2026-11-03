@@ -22,6 +22,7 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 ## Features
 
 - User Registration: Users can register by providing their details, such as name, email, address, and phone number.
+  - `name` validation (`POST /api/users/register` and `POST /api/users/update`): the name must start with a letter and may only contain letters (any language), spaces, apostrophes (`'`), hyphens (`-`), periods (`.`) and commas (`,`), up to 100 characters. Other names are rejected with HTTP 400 and the message `Name may only contain letters, spaces, apostrophes, hyphens, periods and commas, and must be at most 100 characters`.
 - PIN Management: Users can create and update their PINs for added security.
 - Cash Deposit and Withdrawal: Users can deposit and withdraw cash from their accounts.
 - Fund Transfer: Users can transfer funds to other accounts within the system.

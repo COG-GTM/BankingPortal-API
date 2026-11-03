@@ -8,6 +8,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 import jakarta.mail.MessagingException;
 
@@ -57,12 +58,12 @@ public class EmailServiceImpl implements EmailService {
                 + "<a href=\"https://onestopbank.netlify.app/\" style=\"text-decoration: none;\">"
                 + "<img src=\"https://onestopbank.netlify.app/assets/onestoplogo.jpg\" alt=\"OneStopBank\" style=\"height: 50px; margin-bottom: 10px;\">"
                 + "</a>" + "<h1 style=\"font-size: 1.8em; color: #3f51b5; margin: 10px 0;\">OneStopBank</h1>" + "</div>"
-                + "<div style=\"padding: 20px;\">" + "<p style=\"font-size: 1.2em; color: #333;\">Hi, " + name + ",</p>"
+                + "<div style=\"padding: 20px;\">" + "<p style=\"font-size: 1.2em; color: #333;\">Hi, " + escape(name) + ",</p>"
                 + "<p style=\"font-size: 1em; color: #333;\">A login attempt was made on your account at:</p>"
-                + "<p style=\"font-size: 1em; color: #555;\">Time: <strong style=\"color: #3f51b5;\">" + loginTime
+                + "<p style=\"font-size: 1em; color: #555;\">Time: <strong style=\"color: #3f51b5;\">" + escape(loginTime)
                 + "</strong></p>"
                 + "<p style=\"font-size: 1em; color: #555;\">Location: <strong style=\"color: #3f51b5;\">"
-                + loginLocation + "</strong></p>"
+                + escape(loginLocation) + "</strong></p>"
                 + "<p style=\"font-size: 1em; color: #333;\">If this was you, no further action is required. If you suspect any unauthorized access, please change your password immediately and contact our support team.</p>"
                 + "<p style=\"font-size: 1em; color: #555;\">Regards,<br />The OneStopBank Team</p>" + "</div>"
                 + "<hr style=\"border: none; border-top: 1px solid #ddd; margin: 20px 0;\" />"
@@ -83,13 +84,13 @@ public class EmailServiceImpl implements EmailService {
                 + "<a href=\"https://onestopbank.netlify.app/\" style=\"text-decoration: none;\">"
                 + "<img src=\"https://onestopbank.netlify.app/assets/onestoplogo.jpg\" alt=\"OneStopBank\" style=\"height: 50px; margin-bottom: 10px;\">"
                 + "</a>" + "<h1 style=\"font-size: 1.8em; color: #3f51b5; margin: 10px 0;\">OneStopBank</h1>" + "</div>"
-                + "<div style=\"padding: 20px;\">" + "<p style=\"font-size: 1.2em; color: #333;\">Hi, " + name + ",</p>"
+                + "<div style=\"padding: 20px;\">" + "<p style=\"font-size: 1.2em; color: #333;\">Hi, " + escape(name) + ",</p>"
                 + "<p style=\"font-size: 1em; color: #555;\">Account Number: <strong style=\"color: #3f51b5;\">"
-                + accountNumber + "</strong></p>"
+                + escape(accountNumber) + "</strong></p>"
                 + "<p style=\"font-size: 1em; color: #333;\">Thank you for choosing OneStopBank. Use the following OTP to complete your login procedures. The OTP is valid for "
                 + OtpServiceImpl.OTP_EXPIRY_MINUTES + " minutes:</p>"
                 + "<h2 style=\"background: #3f51b5; margin: 20px 0; width: max-content; padding: 10px 20px; color: #fff; border-radius: 4px;\">"
-                + otp + "</h2>" + "<p style=\"font-size: 1em; color: #555;\">Regards,<br />The OneStopBank Team</p>"
+                + escape(otp) + "</h2>" + "<p style=\"font-size: 1em; color: #555;\">Regards,<br />The OneStopBank Team</p>"
                 + "</div>" + "<hr style=\"border: none; border-top: 1px solid #ddd; margin: 20px 0;\" />"
                 + "<div style=\"text-align: center; font-size: 0.9em; color: #888;\">"
                 + "<p>Need help? Contact our support team:</p>"
@@ -104,13 +105,17 @@ public class EmailServiceImpl implements EmailService {
     public String getBankStatementEmailTemplate(String name, String statementText) {
          return "<div style=\"font-family: Arial, sans-serif; padding: 20px;\">" +
                 "<h2>Bank Statement</h2>" +
-                "<p>Dear " + name + ",</p>" +
+                "<p>Dear " + escape(name) + ",</p>" +
                 "<p>Here is your latest bank statement:</p>" +
                 "<pre style=\"background: #f4f4f4; padding: 10px; border-radius: 5px;\">" +
-                statementText +
+                escape(statementText) +
                 "</pre>" +
                 "<p>Regards,<br/>OneStopBank Team</p>" +
                 "</div>";
+    }
+
+    private static String escape(String value) {
+        return value == null ? "" : HtmlUtils.htmlEscape(value);
     }
 
     public void sendEmailWithAttachment(String to, String subject, String text, String attachmentFilePath) {
