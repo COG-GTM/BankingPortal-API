@@ -27,6 +27,15 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 - Fund Transfer: Users can transfer funds to other accounts within the system.
 - Transaction History: Users can view their transaction history.
 
+## OTP Verification Rules
+
+These rules apply to both `POST /api/users/verify-otp` (OTP login) and `POST /api/auth/password-reset/verify-otp` (password reset):
+
+- OTPs are 6-digit codes, valid for 5 minutes after generation.
+- **Single use:** a code is consumed on its first successful verification. Retrying with the same code (for example after a lost response) is rejected with `Invalid OTP`; request a new code instead.
+- **Failed-attempt limit:** after 5 wrong codes for an account, the current code is invalidated and even the correct code is rejected. A new code must be generated (`/api/users/generate-otp` or `/api/auth/password-reset/send-otp`).
+- OTP generation remains limited to 3 codes per account within the retry window.
+
 ## Technologies Used
 
 ![image](https://github.com/abhi9720/BankingPortal-API/assets/68281476/31896d20-16d9-4fe1-a534-0490841de4b9)
