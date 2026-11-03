@@ -20,7 +20,7 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
         val cacheManager = new CaffeineCacheManager();
-        cacheManager.setCacheNames(List.of("otpAttempts")); // Define the cache names
+        cacheManager.setCacheNames(List.of("otpAttempts", "otpLimitReachedTime")); // Define the cache names
         cacheManager.setCaffeine(caffeineConfig());
         return cacheManager;
     }
@@ -28,7 +28,7 @@ public class CacheConfig {
     public Caffeine<Object, Object> caffeineConfig() {
         return Caffeine.newBuilder()
                 .expireAfterWrite(15, TimeUnit.MINUTES) // Cache entries expire after 15 minutes
-                .maximumSize(100) // Maximum of 100 entries in the cache
+                .maximumSize(10_000) // Bound memory while keeping per-account OTP counters from being evicted
                 .recordStats(); // For monitoring cache statistics (optional)
     }
 
