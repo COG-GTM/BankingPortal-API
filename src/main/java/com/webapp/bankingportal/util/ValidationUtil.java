@@ -1,5 +1,7 @@
 package com.webapp.bankingportal.util;
 
+import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -198,6 +200,20 @@ public class ValidationUtil {
         if (doesPhoneNumberExist(user.getPhoneNumber())) {
             throw new UserInvalidException(ApiMessages.USER_PHONE_NUMBER_ALREADY_EXISTS_ERROR.getMessage());
         }
+    }
+
+    public void validateUpdatedUser(User existingUser, UpdateUserRequest request) {
+        validateUserDetails(request);
+        if (isTakenByAnotherUser(userRepository.findByEmail(request.email()), existingUser)) {
+            throw new UserInvalidException(ApiMessages.USER_EMAIL_ALREADY_EXISTS_ERROR.getMessage());
+        }
+        if (isTakenByAnotherUser(userRepository.findByPhoneNumber(request.phoneNumber()), existingUser)) {
+            throw new UserInvalidException(ApiMessages.USER_PHONE_NUMBER_ALREADY_EXISTS_ERROR.getMessage());
+        }
+    }
+
+    private static boolean isTakenByAnotherUser(Optional<User> match, User existingUser) {
+        return match.filter(user -> !user.getId().equals(existingUser.getId())).isPresent();
     }
 
     public boolean doesAccountExist(String accountNumber) {

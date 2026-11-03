@@ -212,7 +212,7 @@ public class UserServiceImpl implements UserService {
     }
 
     private void updateUserDetails(User existingUser, UpdateUserRequest updateRequest) {
-        ValidationUtil.validateUserDetails(updateRequest);
+        validationUtil.validateUpdatedUser(existingUser, updateRequest);
         userMapper.updateUser(updateRequest, existingUser);
     }
 
