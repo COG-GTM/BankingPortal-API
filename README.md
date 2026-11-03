@@ -27,6 +27,25 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 - Fund Transfer: Users can transfer funds to other accounts within the system.
 - Transaction History: Users can view their transaction history.
 
+## Profile Update (`POST /api/users/update`)
+
+Requires a `Bearer` token. The body accepts only these profile fields:
+
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "countryCode": "IN",
+  "phoneNumber": "9876543210",
+  "address": "1 Main Street",
+  "password": "<current password>"
+}
+```
+
+- `password` is the caller's current password. It is used only to re-authenticate the request and does not change the stored password.
+- Any other field, such as `id` or `account` (balance, PIN, account number), is ignored. Balance and PIN can only change through the account and PIN endpoints.
+- An `email` or `phoneNumber` that belongs to another user is rejected with `400`. Keeping your own current values is allowed.
+
 ## Technologies Used
 
 ![image](https://github.com/abhi9720/BankingPortal-API/assets/68281476/31896d20-16d9-4fe1-a534-0490841de4b9)
