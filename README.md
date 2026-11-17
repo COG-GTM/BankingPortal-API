@@ -25,6 +25,7 @@ The Banking Portal API provides a set of endpoints for managing user accounts, f
 - PIN Management: Users can create and update their PINs for added security.
 - Cash Deposit and Withdrawal: Users can deposit and withdraw cash from their accounts.
 - Fund Transfer: Users can transfer funds to other accounts within the system.
+- Idempotent Payments: Deposit, withdraw and fund-transfer accept an optional `Idempotency-Key` header. A retry with the same key gets the original response back without moving money again; a request with a new key (or no key) always runs.
 - Transaction History: Users can view their transaction history.
 
 ## Technologies Used

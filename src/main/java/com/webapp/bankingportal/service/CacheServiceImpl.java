@@ -73,6 +73,12 @@ public class CacheServiceImpl implements CacheService {
     }
 
     @Override
+    public boolean putIfAbsent(CacheKeyType cacheKeyType, Object value, long ttlSeconds, String... keyArguments) {
+        String key = acquireKey(cacheKeyType, keyArguments);
+        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key, value, ttlSeconds, TimeUnit.SECONDS));
+    }
+
+    @Override
     public void delete(CacheKeyType cacheKeyType, String... keyArguments) {
         String key = acquireKey(cacheKeyType, keyArguments);
 
