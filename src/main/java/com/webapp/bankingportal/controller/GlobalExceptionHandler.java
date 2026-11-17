@@ -12,6 +12,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.webapp.bankingportal.exception.AccountDoesNotExistException;
 import com.webapp.bankingportal.exception.FundTransferException;
 import com.webapp.bankingportal.exception.GeolocationException;
+import com.webapp.bankingportal.exception.IdempotencyKeyInProgressException;
+import com.webapp.bankingportal.exception.IdempotencyKeyReusedException;
 import com.webapp.bankingportal.exception.InsufficientBalanceException;
 import com.webapp.bankingportal.exception.InvalidAmountException;
 import com.webapp.bankingportal.exception.InvalidTokenException;
@@ -48,6 +50,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GeolocationException.class)
     public ResponseEntity<String> handleGeolocationException(GeolocationException ex) {
         return ResponseEntity.badRequest().body(ex.getMessage());
+    }
+
+    @ExceptionHandler(IdempotencyKeyInProgressException.class)
+    public ResponseEntity<String> handleIdempotencyKeyInProgressException(
+            IdempotencyKeyInProgressException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(IdempotencyKeyReusedException.class)
+    public ResponseEntity<String> handleIdempotencyKeyReusedException(
+            IdempotencyKeyReusedException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

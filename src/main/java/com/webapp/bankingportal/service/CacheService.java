@@ -15,5 +15,7 @@ public interface CacheService {
 
     void put(CacheKeyType cacheKeyType, Object value, long ttlSeconds, String... keyArguments);
 
+    boolean putIfAbsent(CacheKeyType cacheKeyType, Object value, long ttlSeconds, String... keyArguments);
+
     void delete(CacheKeyType cacheKeyType, String... keyArguments);
 }
