@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.webapp.bankingportal.exception.IdempotencyKeyInProgressException;
 import com.webapp.bankingportal.exception.IdempotencyKeyReusedException;
 import com.webapp.bankingportal.type.CacheKeyType;
@@ -26,7 +27,7 @@ import lombok.val;
 @RequiredArgsConstructor
 public class IdempotencyServiceImpl implements IdempotencyService {
 
-    static final long IN_PROGRESS_TTL_SECONDS = 300;
+    private static final String EXCLUDED_FROM_FINGERPRINT = "pin";
     private static final Pattern VALID_KEY = Pattern.compile("[\\x21-\\x7E]{1,255}");
 
     private final CacheService cacheService;
@@ -46,7 +47,9 @@ public class IdempotencyServiceImpl implements IdempotencyService {
 
         val fingerprint = fingerprint(request);
         val inProgress = toJson(new StoredRequest(fingerprint, false, 0, null));
-        if (!cacheService.putIfAbsent(CacheKeyType.IDEMPOTENCY, inProgress, IN_PROGRESS_TTL_SECONDS,
+        // The in-progress marker lives as long as a stored response, so a retry can never outlast it and run
+        // the payment again, even if the app dies after moving money or the final save below fails.
+        if (!cacheService.putIfAbsent(CacheKeyType.IDEMPOTENCY, inProgress, CacheKeyType.IDEMPOTENCY.getTtlSeconds(),
                 accountNumber, endpoint, idempotencyKey)) {
             return replay(accountNumber, endpoint, idempotencyKey, fingerprint);
         }
@@ -95,8 +98,12 @@ public class IdempotencyServiceImpl implements IdempotencyService {
 
     private static String fingerprint(Object request) {
         try {
+            val json = JsonUtil.objectMapper.valueToTree(request);
+            if (json instanceof ObjectNode objectNode) {
+                objectNode.remove(EXCLUDED_FROM_FINGERPRINT);
+            }
             val digest = MessageDigest.getInstance("SHA-256")
-                    .digest(JsonUtil.objectMapper.writeValueAsBytes(request));
+                    .digest(JsonUtil.objectMapper.writeValueAsBytes(json));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException | JsonProcessingException e) {
             throw new IllegalStateException(e);

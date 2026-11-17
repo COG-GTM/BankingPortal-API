@@ -1,7 +1,11 @@
 package com.webapp.bankingportal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
@@ -10,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.ResultActions;
@@ -21,6 +26,7 @@ import com.webapp.bankingportal.dto.FundTransferRequest;
 import com.webapp.bankingportal.exception.IdempotencyKeyInProgressException;
 import com.webapp.bankingportal.repository.AccountRepository;
 import com.webapp.bankingportal.service.IdempotencyService;
+import com.webapp.bankingportal.type.CacheKeyType;
 import com.webapp.bankingportal.util.ApiMessages;
 import com.webapp.bankingportal.util.JsonUtil;
 
@@ -33,6 +39,9 @@ public class IdempotencyKeyTests extends BaseTest {
 
     @Autowired
     private IdempotencyService idempotencyService;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     private ResultActions post(String path, String token, String idempotencyKey, Object body) throws Exception {
         val request = MockMvcRequestBuilders.post(path)
@@ -184,5 +193,47 @@ public class IdempotencyKeyTests extends BaseTest {
         });
         assertEquals("true", replay.getHeaders().getFirst(IdempotencyService.REPLAYED_HEADER));
         assertEquals(1, executions.get());
+    }
+
+    @Test
+    public void test_pin_is_left_out_of_the_stored_fingerprint() throws Exception {
+        val user = createAndLoginUserWithInitialBalance(1000.0);
+        val token = "Bearer " + user.get("token");
+        val accountNumber = user.get("accountNumber");
+        val request = new AmountRequest(accountNumber, user.get("pin"), 100.0);
+        val key = UUID.randomUUID().toString();
+
+        post("/api/account/deposit", token, key, request).andExpect(MockMvcResultMatchers.status().isOk());
+
+        val stored = (String) redisTemplate.opsForValue()
+                .get(CacheKeyType.IDEMPOTENCY.generateKey(accountNumber, "/api/account/deposit", key));
+        val hashWithPin = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(JsonUtil.objectMapper.writeValueAsBytes(request)));
+        assertFalse(stored.contains(hashWithPin));
+        assertFalse(stored.contains(user.get("pin")));
+
+        post("/api/account/deposit", token, key, new AmountRequest(accountNumber, "0000", 100.0))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.header().string(IdempotencyService.REPLAYED_HEADER, "true"));
+        assertEquals(1100.0, balanceOf(accountNumber));
+    }
+
+    @Test
+    public void test_in_progress_marker_lasts_as_long_as_the_stored_response() {
+        val accountNumber = getRandomAccountNumber();
+        val key = UUID.randomUUID().toString();
+        val redisKey = CacheKeyType.IDEMPOTENCY.generateKey(accountNumber, "/api/account/withdraw", key);
+        val minimumTtl = CacheKeyType.IDEMPOTENCY.getTtlSeconds() - 60;
+        val executions = new AtomicInteger();
+
+        idempotencyService.execute(accountNumber, "/api/account/withdraw", key,
+                new AmountRequest(accountNumber, "1234", 100.0), () -> {
+                    executions.incrementAndGet();
+                    assertTrue(redisTemplate.getExpire(redisKey, TimeUnit.SECONDS) > minimumTtl);
+                    return ResponseEntity.ok(ApiMessages.CASH_WITHDRAWAL_SUCCESS.getMessage());
+                });
+
+        assertEquals(1, executions.get());
+        assertTrue(redisTemplate.getExpire(redisKey, TimeUnit.SECONDS) > minimumTtl);
     }
 }
