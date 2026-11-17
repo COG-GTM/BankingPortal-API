@@ -66,7 +66,7 @@ public class ValidationUtil {
     }
 
     public static boolean isPasswordTooLong(String password) {
-        return password.getBytes(StandardCharsets.UTF_8).length > 72;
+        return password != null && password.getBytes(StandardCharsets.UTF_8).length > 72;
     }
 
     public static void validatePassword(String password) {

@@ -89,7 +89,12 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseEntity<String> resetPassword(ResetPasswordRequest resetPasswordRequest) {
-        if (ValidationUtil.isPasswordTooLong(resetPasswordRequest.newPassword())) {
+        val newPassword = resetPasswordRequest.newPassword();
+        if (newPassword == null || newPassword.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiMessages.PASSWORD_EMPTY_ERROR.getMessage());
+        }
+
+        if (ValidationUtil.isPasswordTooLong(newPassword)) {
             return ResponseEntity.badRequest().body(ApiMessages.PASSWORD_TOO_LONG_ERROR.getMessage());
         }
 
