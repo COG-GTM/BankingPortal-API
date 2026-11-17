@@ -1,5 +1,7 @@
 package com.webapp.bankingportal.util;
 
+import java.nio.charset.StandardCharsets;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -63,12 +65,16 @@ public class ValidationUtil {
         return phoneNumberUtil.isValidNumber(parsedNumber);
     }
 
+    public static boolean isPasswordTooLong(String password) {
+        return password != null && password.getBytes(StandardCharsets.UTF_8).length > 72;
+    }
+
     public static void validatePassword(String password) {
         if (password.length() < 8) {
             throw new UserInvalidException(ApiMessages.PASSWORD_TOO_SHORT_ERROR.getMessage());
         }
 
-        if (password.length() >= 128) {
+        if (isPasswordTooLong(password)) {
             throw new UserInvalidException(ApiMessages.PASSWORD_TOO_LONG_ERROR.getMessage());
         }
 

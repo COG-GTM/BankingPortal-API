@@ -14,6 +14,7 @@ import com.webapp.bankingportal.entity.PasswordResetToken;
 import com.webapp.bankingportal.entity.User;
 import com.webapp.bankingportal.repository.PasswordResetTokenRepository;
 import com.webapp.bankingportal.util.ApiMessages;
+import com.webapp.bankingportal.util.ValidationUtil;
 
 import lombok.RequiredArgsConstructor;
 import lombok.val;
@@ -88,6 +89,15 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseEntity<String> resetPassword(ResetPasswordRequest resetPasswordRequest) {
+        val newPassword = resetPasswordRequest.newPassword();
+        if (newPassword == null || newPassword.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiMessages.PASSWORD_EMPTY_ERROR.getMessage());
+        }
+
+        if (ValidationUtil.isPasswordTooLong(newPassword)) {
+            return ResponseEntity.badRequest().body(ApiMessages.PASSWORD_TOO_LONG_ERROR.getMessage());
+        }
+
         val user = userService.getUserByIdentifier(resetPasswordRequest.identifier());
 
         if (!verifyPasswordResetToken(resetPasswordRequest.resetToken(), user)) {
