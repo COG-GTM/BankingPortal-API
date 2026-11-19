@@ -24,11 +24,8 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public List<TransactionDTO> getAllTransactionsByAccountNumber(String accountNumber) {
-        val transactions = transactionRepository
-                .findBySourceAccount_AccountNumberOrTargetAccount_AccountNumber(accountNumber, accountNumber);
-
-        val transactionDTOs = transactions.parallelStream()
-                .map(transactionMapper::toDto)
+        val transactionDTOs = transactionRepository.findTransactionDTOsByAccountNumber(accountNumber)
+                .stream()
                 .sorted((t1, t2) -> t2.getTransactionDate().compareTo(t1.getTransactionDate()))
                 .collect(Collectors.toList());
 
